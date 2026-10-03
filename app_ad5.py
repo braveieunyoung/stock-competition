@@ -7,11 +7,22 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
 from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 
 # ---------------------------------------------------------
 # 1. DB 연결 설정 (Supabase PostgreSQL)
 # ---------------------------------------------------------
 DATABASE_URL = st.secrets["database"]["url"]  
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,      # 끊어진 연결 자동 재접속
+    pool_recycle=300,        # 5분마다 연결 재재생
+    connect_args={
+        "sslmode": "require",
+        "connect_timeout": 10
+    }
+)
 
 @st.cache_resource
 def get_db_engine():
