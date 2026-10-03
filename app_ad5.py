@@ -194,7 +194,7 @@ def render_admin_dashboard():
     with tab2:
         st.subheader("💵 시드 머니 지급 및 수정")
         col_m1, col_m2 = st.columns(2)
-        all_students = pd.read_sql("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", engine)
+        all_students = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
 
         with col_m1:
             st.markdown("### 👤 개별 학생 예수금 수정")
@@ -628,11 +628,11 @@ else:
             st.subheader("🏆 전체 참가자 실시간 랭킹")
             if st.button("🔄 랭킹 새로고침"): st.rerun()
 
-            all_users = pd.read_sql("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", engine)
+            all_users = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
             leaderboard = []
             for _, u in all_users.iterrows():
                 u_id, u_name, u_cash = u['student_id'], u['name'], float(u['cash'])
-                u_port = pd.read_sql("SELECT symbol, quantity FROM portfolio WHERE student_id = :s_id", engine, params={"s_id": u_id})
+                u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
                 u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
                 u_total = u_cash + u_stock_eval
                 leaderboard.append({
