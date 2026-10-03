@@ -642,7 +642,7 @@ else:
                 })
 
             if leaderboard:
-                lb_df = pd.DataFrame(leaderboard).sort_values(by="총 자산 (원)", ascending=False).reset_index(drop=True)
+                lb_df = pd.DataFrame(leaderboard).sort_values(by=["총 자산 (원)", "학번"], ascending=[False, True]).reset_index(drop=True)
                 lb_df.index += 1
 
                 st.dataframe(
