@@ -311,7 +311,7 @@ def render_admin_dashboard():
 
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
-        all_students = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
+        all_users_df = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
         if not all_users_df.empty:
             all_users_df['시드머니'] = all_users_df['시드머니'].apply(lambda x: f"{int(x):,} 원")
             all_users_df['가입여부'] = all_users_df['가입여부'].apply(lambda x: "등록 완료" if x == 1 else "미등록(최초로그인 대기)")
