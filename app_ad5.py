@@ -1,25 +1,20 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
-import io
 from sqlalchemy import create_engine, text
 
 # ---------------------------------------------------------
-# 1. DB 초기화 및 마이그레이션
+# 1. DB 연결 설정 (Supabase PostgreSQL)
 # ---------------------------------------------------------
-# 1. Streamlit Secrets에서 DB URL 가져오기
 DATABASE_URL = st.secrets["database"]["url"]  
 
-# 2. SQLAlchemy 데이터베이스 엔진 생성 (캐싱 적용)
 @st.cache_resource
 def get_db_engine():
-    # PostgreSQL과의 커넥션 풀 유지를 위한 설정
     return create_engine(DATABASE_URL, pool_pre_ping=True)
 
 engine = get_db_engine()
@@ -33,11 +28,11 @@ STOCKS = {
     "LG에너지솔루션": "373220.KS",
     "셀트리온": "068270.KS",
     "기아": "000270.KS",
-    "한화오션":"042660.KS",
+    "한화오션": "042660.KS",
     "POSCO홀딩스": "005490.KS",
-    "KODEX200(ETF)":"069500.KS",
+    "KODEX200(ETF)": "069500.KS",
     "KODEX 미국S&P500(ETF)": "379800.KS",
-    "KODEX 미국나스닥100(ETF)":"379810.KS",
+    "KODEX 미국나스닥100(ETF)": "379810.KS",
     "에코프로비엠 (코스닥)": "247540.KQ",
     "애플 (미국)": "AAPL",
     "테슬라 (미국)": "TSLA",
@@ -136,17 +131,16 @@ def render_admin_dashboard():
     st.info("관리자로 로그인되었습니다. 학생 명단 관리 및 초기 설정을 진행할 수 있습니다.")
 
     tab1, tab2, tab3 = st.tabs(["📊 전체 랭킹 및 데이터", "💰 시드 머니 관리", "👥 학생 명단 & CSV 업로드"])
-    conn = sqlite3.connect(DB_FILE)
 
     # TAB 1: 랭킹 및 데이터 다운로드
     with tab1:
         st.subheader("🏆 전체 참가자 실시간 데이터")
-        all_users = pd.read_sql_query("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", conn)
+        all_users = pd.read_sql("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", engine)
         
         admin_leaderboard = []
         for _, u in all_users.iterrows():
             u_id, u_name, u_cash = u['student_id'], u['name'], float(u['cash'])
-            u_port = pd.read_sql_query("SELECT symbol, quantity FROM portfolio WHERE student_id = ?", conn, params=(u_id,))
+            u_port = pd.read_sql("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id", engine, params={"student_id": u_id})
             u_stock_eval = 0
             if not u_port.empty:
                 for _, row in u_port.iterrows():
@@ -185,7 +179,7 @@ def render_admin_dashboard():
     with tab2:
         st.subheader("💵 시드 머니 지급 및 수정")
         col_m1, col_m2 = st.columns(2)
-        all_students = pd.read_sql_query("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", conn)
+        all_students = pd.read_sql("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", engine)
 
         with col_m1:
             st.markdown("### 👤 개별 학생 예수금 수정")
@@ -199,9 +193,11 @@ def render_admin_dashboard():
 
                 new_cash_val = st.number_input("설정할 예수금(원)", min_value=0, step=100000, value=int(curr_cash))
                 if st.button("개별 금액 설정 완료", type="primary"):
-                    c = conn.cursor()
-                    c.execute("UPDATE users SET cash = ? WHERE student_id = ?", (new_cash_val, target_id))
-                    conn.commit()
+                    with engine.begin() as conn:
+                        conn.execute(
+                            text("UPDATE users SET cash = :cash WHERE student_id = :student_id"),
+                            {"cash": new_cash_val, "student_id": target_id}
+                        )
                     st.success("예수금이 수정되었습니다.")
                     st.rerun()
 
@@ -209,9 +205,11 @@ def render_admin_dashboard():
             st.markdown("### 📢 전체 학생 일괄 추가 지급")
             add_cash_val = st.number_input("전체 추가 지급 금액(원)", min_value=0, step=100000, value=1000000)
             if st.button("전체 일괄 지급 실행"):
-                c = conn.cursor()
-                c.execute("UPDATE users SET cash = cash + ? WHERE student_id != 'admin'", (add_cash_val,))
-                conn.commit()
+                with engine.begin() as conn:
+                    conn.execute(
+                        text("UPDATE users SET cash = cash + :add_cash WHERE student_id != 'admin'"),
+                        {"add_cash": add_cash_val}
+                    )
                 st.success(f"모든 학생에게 {add_cash_val:,} 원이 일괄 지급되었습니다.")
                 st.rerun()
 
@@ -219,7 +217,6 @@ def render_admin_dashboard():
     with tab3:
         st.subheader("📁 CSV 파일로 학생 명단 일괄 등록")
         
-        # 샘플 CSV 다운로드
         sample_df = pd.DataFrame([
             {"학번": "10101", "이름": "김철수", "비밀번호": "1234", "시드머니": 10000000},
             {"학번": "10102", "이름": "이영희", "비밀번호": "", "시드머니": 10000000}
@@ -240,33 +237,32 @@ def render_admin_dashboard():
                 st.write("📋 미리보기:", df_upload.head())
                 
                 if st.button("🚀 DB에 명단 일괄 등록하기", type="primary"):
-                    c = conn.cursor()
                     added_count = 0
                     updated_count = 0
                     
-                    for _, row in df_upload.iterrows():
-                        s_id = str(row['학번']).strip()
-                        s_name = str(row['이름']).strip()
-                        s_pw = str(row['비밀번호']).strip() if pd.notna(row.get('비밀번호')) and str(row.get('비밀번호')).strip() != 'nan' else ""
-                        
-                        if '시드머니' in row and pd.notna(row['시드머니']):
-                            s_cash = float(row['시드머니'])
-                        else:
-                            s_cash = 10000000.0
+                    with engine.begin() as conn:
+                        for _, row in df_upload.iterrows():
+                            s_id = str(row['학번']).strip()
+                            s_name = str(row['이름']).strip()
+                            s_pw = str(row['비밀번호']).strip() if pd.notna(row.get('비밀번호')) and str(row.get('비밀번호')).strip() != 'nan' else ""
                             
-                        is_reg = 1 if s_pw else 0
+                            s_cash = float(row['시드머니']) if '시드머니' in row and pd.notna(row['시드머니']) else 10000000.0
+                            is_reg = 1 if s_pw else 0
 
-                        c.execute("SELECT * FROM users WHERE student_id = ?", (s_id,))
-                        if c.fetchone():
-                            c.execute("UPDATE users SET name = ?, password = ?, cash = ?, is_registered = ? WHERE student_id = ?", 
-                                      (s_name, s_pw, s_cash, is_reg, s_id))
-                            updated_count += 1
-                        else:
-                            c.execute("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (?, ?, ?, ?, ?)", 
-                                      (s_id, s_name, s_cash, s_pw, is_reg))
-                            added_count += 1
+                            res = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": s_id}).fetchone()
+                            if res:
+                                conn.execute(
+                                    text("UPDATE users SET name = :name, password = :pw, cash = :cash, is_registered = :is_reg WHERE student_id = :s_id"),
+                                    {"name": s_name, "pw": s_pw, "cash": s_cash, "is_reg": is_reg, "s_id": s_id}
+                                )
+                                updated_count += 1
+                            else:
+                                conn.execute(
+                                    text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
+                                    {"s_id": s_id, "name": s_name, "cash": s_cash, "pw": s_pw, "is_reg": is_reg}
+                                )
+                                added_count += 1
                     
-                    conn.commit()
                     st.success(f"완료! 신규 등록: {added_count}명 / 정보 갱신: {updated_count}명")
                     st.rerun()
             except Exception as e:
@@ -283,30 +279,31 @@ def render_admin_dashboard():
             
             if st.button("개별 학생 등록"):
                 if new_s_id and new_s_name:
-                    c = conn.cursor()
-                    c.execute("SELECT * FROM users WHERE student_id = ?", (new_s_id,))
-                    if c.fetchone():
-                        st.error("이미 존재하는 학번입니다.")
-                    else:
-                        is_reg = 1 if new_s_pw else 0
-                        c.execute("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (?, ?, ?, ?, ?)", 
-                                  (new_s_id, new_s_name, new_s_cash, new_s_pw, is_reg))
-                        conn.commit()
-                        st.success(f"{new_s_id} {new_s_name} 학생이 등록되었습니다.")
-                        st.rerun()
+                    with engine.begin() as conn:
+                        res = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": new_s_id}).fetchone()
+                        if res:
+                            st.error("이미 존재하는 학번입니다.")
+                        else:
+                            is_reg = 1 if new_s_pw else 0
+                            conn.execute(
+                                text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
+                                {"s_id": new_s_id, "name": new_s_name, "cash": new_s_cash, "pw": new_s_pw, "is_reg": is_reg}
+                            )
+                            st.success(f"{new_s_id} {new_s_name} 학생이 등록되었습니다.")
+                            st.rerun()
                 else:
                     st.error("학번과 이름을 입력하세요.")
 
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
-        all_users_df = pd.read_sql_query("SELECT student_id AS 학번, name AS 이름, cash AS 시드머니, is_registered AS 가입여부 FROM users WHERE student_id != 'admin'", conn)
+        all_users_df = pd.read_sql("SELECT student_id AS 학번, name AS 이름, cash AS 시드머니, is_registered AS 가입여부 FROM users WHERE student_id != 'admin'", engine)
         if not all_users_df.empty:
             all_users_df['시드머니'] = all_users_df['시드머니'].apply(lambda x: f"{int(x):,} 원")
             all_users_df['가입여부'] = all_users_df['가입여부'].apply(lambda x: "등록 완료" if x == 1 else "미등록(최초로그인 대기)")
             st.dataframe(all_users_df, width="stretch", hide_index=True)
 
             col_reset, col_del = st.columns(2)
-            del_students = pd.read_sql_query("SELECT student_id, name FROM users WHERE student_id != 'admin'", conn)
+            del_students = pd.read_sql("SELECT student_id, name FROM users WHERE student_id != 'admin'", engine)
             reset_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in del_students.iterrows()}
 
             with col_reset:
@@ -315,9 +312,11 @@ def render_admin_dashboard():
                 reset_target_id = reset_options[reset_label]
 
                 if st.button("비밀번호 초기화 실행"):
-                    c = conn.cursor()
-                    c.execute("UPDATE users SET password = '', is_registered = 0 WHERE student_id = ?", (reset_target_id,))
-                    conn.commit()
+                    with engine.begin() as conn:
+                        conn.execute(
+                            text("UPDATE users SET password = '', is_registered = 0 WHERE student_id = :s_id"),
+                            {"s_id": reset_target_id}
+                        )
                     st.success("비밀번호가 초기화되었습니다. 재로그인 시 신규 비밀번호를 입력합니다.")
                     st.rerun()
 
@@ -327,14 +326,11 @@ def render_admin_dashboard():
                 del_target_id = reset_options[del_label]
 
                 if st.button("선택한 학생 삭제", type="primary"):
-                    c = conn.cursor()
-                    c.execute("DELETE FROM users WHERE student_id = ?", (del_target_id,))
-                    c.execute("DELETE FROM portfolio WHERE student_id = ?", (del_target_id,))
-                    conn.commit()
+                    with engine.begin() as conn:
+                        conn.execute(text("DELETE FROM users WHERE student_id = :s_id"), {"s_id": del_target_id})
+                        conn.execute(text("DELETE FROM portfolio WHERE student_id = :s_id"), {"s_id": del_target_id})
                     st.warning("학생 명단 및 투자 데이터가 삭제되었습니다.")
                     st.rerun()
-
-    conn.close()
 
 # ---------------------------------------------------------
 # 4. 로그인 및 라우팅
@@ -356,11 +352,9 @@ if st.session_state.get('user') is None:
         s_pw = password.strip()
 
         if s_id.lower() == "admin":
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute("SELECT password FROM users WHERE student_id = 'admin'")
-            admin_pw = c.fetchone()[0]
-            conn.close()
+            with engine.connect() as conn:
+                res = conn.execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
+                admin_pw = res[0] if res else ""
 
             if s_pw == admin_pw:
                 st.session_state['user'] = {"student_id": "admin", "name": "관리자"}
@@ -372,37 +366,36 @@ if st.session_state.get('user') is None:
             if not s_id or not s_name or not s_pw:
                 st.warning("학번, 이름, 비밀번호를 모두 입력해 주세요.")
             else:
-                conn = sqlite3.connect(DB_FILE)
-                c = conn.cursor()
-                c.execute("SELECT name, password, is_registered FROM users WHERE student_id = ?", (s_id,))
-                user_row = c.fetchone()
+                with engine.connect() as conn:
+                    user_row = conn.execute(
+                        text("SELECT name, password, is_registered FROM users WHERE student_id = :s_id"),
+                        {"s_id": s_id}
+                    ).fetchone()
 
                 if not user_row:
                     st.error("❌ 등록되지 않은 학번입니다. 선생님(관리자)에게 명단 등록을 요청하세요.")
-                    conn.close()
                 else:
                     db_name, db_pw, is_reg = user_row[0], user_row[1], user_row[2]
 
                     if db_name != s_name:
-                        st.error(f"학번과 이름이 일치하지 않습니다!")
-                        conn.close()
+                        st.error("학번과 이름이 일치하지 않습니다!")
 
                     elif is_reg == 0:
-                        c.execute("UPDATE users SET password = ?, is_registered = 1 WHERE student_id = ?", (s_pw, s_id))
-                        conn.commit()
-                        conn.close()
+                        with engine.begin() as conn:
+                            conn.execute(
+                                text("UPDATE users SET password = :pw, is_registered = 1 WHERE student_id = :s_id"),
+                                {"pw": s_pw, "s_id": s_id}
+                            )
                         st.success("🎉 최초 로그인 완료! 입력하신 비밀번호로 설정되었습니다.")
                         st.session_state['user'] = {"student_id": s_id, "name": db_name}
                         st.rerun()
 
                     else:
                         if db_pw == s_pw:
-                            conn.close()
                             st.session_state['user'] = {"student_id": s_id, "name": db_name}
                             st.rerun()
                         else:
                             st.error("비밀번호가 올바르지 않습니다.")
-                            conn.close()
 
 # ---------------------------------------------------------
 # 5. 메인 화면
@@ -426,23 +419,22 @@ else:
 
     # [B] 학생 모드 (통합 포트폴리오 + 랭킹)
     else:
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("SELECT cash FROM users WHERE student_id = ?", (user_id,))
-        cash_row = c.fetchone()
+        with engine.connect() as conn:
+            cash_row = conn.execute(
+                text("SELECT cash FROM users WHERE student_id = :s_id"),
+                {"s_id": user_id}
+            ).fetchone()
         cash = float(cash_row[0]) if cash_row else 10000000.0
 
-        portfolio_df = pd.read_sql_query(
-            "SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = ? AND quantity > 0",
-            conn, params=(user_id,)
+        portfolio_df = pd.read_sql(
+            "SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0",
+            engine, params={"s_id": user_id}
         )
 
-        # 탭 2개로 단축 (주식 매매 탭 삭제)
         tab1, tab2 = st.tabs(["💼 내 포트폴리오", "🥇 실시간 랭킹"])
 
-        # TAB 1: 내 포트폴리오 (자산현황 + 차트/매수 + 보유목록/매도)
+        # TAB 1: 내 포트폴리오
         with tab1:
-            # 1. 내 보유 자산 현황
             st.subheader("💼 내 보유 자산 현황")
             total_eval = cash
 
@@ -461,7 +453,7 @@ else:
 
             st.divider()
 
-            # 2. 주식 차트 및 매수 창 (기존 주식 매매 탭의 핵심 기능 이관)
+            # 주식 차트 및 매수 창
             st.subheader("📈 관심 종목 차트 및 매수")
             col_select, col_price, col_cash = st.columns([2, 1, 1])
             with col_select:
@@ -481,7 +473,7 @@ else:
                 st.caption(f"**{selected_stock_name}** 최근 3개월 차트")
                 df_hist = get_stock_history(symbol)
                 if not df_hist.empty:
-                    chart_tab1, chart_tab2 = st.tabs(["🕯️️ 캔들 차트", "📈 선 차트"])
+                    chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
                     with chart_tab1:
                         fig_candle = go.Figure(data=[go.Candlestick(
                             x=df_hist['Date'], open=df_hist['Open'], high=df_hist['High'],
@@ -520,17 +512,29 @@ else:
                             st.error("현재가를 불러올 수 없습니다.")
                         elif cash >= total_buy_price:
                             new_cash = cash - total_buy_price
-                            c.execute("UPDATE users SET cash = ? WHERE student_id = ?", (new_cash, user_id))
-                            c.execute("SELECT quantity, buy_price FROM portfolio WHERE student_id = ? AND symbol = ?", (user_id, symbol))
-                            item = c.fetchone()
-                            if item:
-                                old_qty, old_price = int(item[0]), float(item[1])
-                                new_qty = old_qty + buy_qty
-                                new_buy_price = ((old_qty * old_price) + total_buy_price) / new_qty
-                                c.execute("UPDATE portfolio SET quantity = ?, buy_price = ? WHERE student_id = ? AND symbol = ?", (int(new_qty), float(new_buy_price), user_id, symbol))
-                            else:
-                                c.execute("INSERT INTO portfolio VALUES (?, ?, ?, ?, ?)", (user_id, symbol, selected_stock_name, int(buy_qty), float(current_price)))
-                            conn.commit()
+                            with engine.begin() as conn:
+                                conn.execute(
+                                    text("UPDATE users SET cash = :cash WHERE student_id = :s_id"),
+                                    {"cash": new_cash, "s_id": user_id}
+                                )
+                                item = conn.execute(
+                                    text("SELECT quantity, buy_price FROM portfolio WHERE student_id = :s_id AND symbol = :sym"),
+                                    {"s_id": user_id, "sym": symbol}
+                                ).fetchone()
+
+                                if item:
+                                    old_qty, old_price = int(item[0]), float(item[1])
+                                    new_qty = old_qty + buy_qty
+                                    new_buy_price = ((old_qty * old_price) + total_buy_price) / new_qty
+                                    conn.execute(
+                                        text("UPDATE portfolio SET quantity = :qty, buy_price = :price WHERE student_id = :s_id AND symbol = :sym"),
+                                        {"qty": new_qty, "price": new_buy_price, "s_id": user_id, "sym": symbol}
+                                    )
+                                else:
+                                    conn.execute(
+                                        text("INSERT INTO portfolio (student_id, symbol, stock_name, quantity, buy_price) VALUES (:s_id, :sym, :s_name, :qty, :price)"),
+                                        {"s_id": user_id, "sym": symbol, "s_name": selected_stock_name, "qty": buy_qty, "price": current_price}
+                                    )
                             st.success(f"{selected_stock_name} {buy_qty}주 매수 완료!")
                             st.rerun()
                         else:
@@ -538,7 +542,7 @@ else:
 
             st.divider()
 
-            # 3. 보유 종목 목록 및 빠른 매도
+            # 보유 종목 목록 및 빠른 매도
             st.markdown("### 📋 보유 종목 목록 및 빠른 매도")
 
             if not portfolio_df.empty:
@@ -554,7 +558,6 @@ else:
                     with st.container(border=True):
                         c_info, c_sell = st.columns([2.5, 1.5])
 
-                        # 좌측: 종목 정보 및 수익률
                         with c_info:
                             st.markdown(f"#### **{p_name}** (`{p_symbol}`)")
                             m1, m2, m3, m4 = st.columns(4)
@@ -566,7 +569,6 @@ else:
                             return_color = "red" if p_return > 0 else "blue" if p_return < 0 else "gray"
                             st.markdown(f"수익률: :{return_color}[**{'+' if p_return > 0 else ''}{p_return:.2f}%**]")
 
-                        # 우측: 매도 레이아웃
                         with c_sell:
                             st.markdown("**⚡ 즉시 매도**")
                             sell_port_key = f"sell_port_qty_{p_symbol}"
@@ -586,15 +588,22 @@ else:
                             if st.button("📈 매도 실행", key=f"btn_sell_port_{p_symbol}", type="primary", use_container_width=True):
                                 if p_qty >= sell_port_qty > 0:
                                     new_cash = cash + est_sell_amount
-                                    c.execute("UPDATE users SET cash = ? WHERE student_id = ?", (new_cash, user_id))
-                                    
-                                    remain_qty = p_qty - sell_port_qty
-                                    if remain_qty > 0:
-                                        c.execute("UPDATE portfolio SET quantity = ? WHERE student_id = ? AND symbol = ?", (remain_qty, user_id, p_symbol))
-                                    else:
-                                        c.execute("DELETE FROM portfolio WHERE student_id = ? AND symbol = ?", (user_id, p_symbol))
-                                    
-                                    conn.commit()
+                                    with engine.begin() as conn:
+                                        conn.execute(
+                                            text("UPDATE users SET cash = :cash WHERE student_id = :s_id"),
+                                            {"cash": new_cash, "s_id": user_id}
+                                        )
+                                        remain_qty = p_qty - sell_port_qty
+                                        if remain_qty > 0:
+                                            conn.execute(
+                                                text("UPDATE portfolio SET quantity = :qty WHERE student_id = :s_id AND symbol = :sym"),
+                                                {"qty": remain_qty, "s_id": user_id, "sym": p_symbol}
+                                            )
+                                        else:
+                                            conn.execute(
+                                                text("DELETE FROM portfolio WHERE student_id = :s_id AND symbol = :sym"),
+                                                {"s_id": user_id, "sym": p_symbol}
+                                            )
                                     st.success(f"{p_name} {sell_port_qty}주 매도 완료!")
                                     st.rerun()
                                 else:
@@ -607,11 +616,11 @@ else:
             st.subheader("🏆 전체 참가자 실시간 랭킹")
             if st.button("🔄 랭킹 새로고침"): st.rerun()
 
-            all_users = pd.read_sql_query("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", conn)
+            all_users = pd.read_sql("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", engine)
             leaderboard = []
             for _, u in all_users.iterrows():
                 u_id, u_name, u_cash = u['student_id'], u['name'], float(u['cash'])
-                u_port = pd.read_sql_query("SELECT symbol, quantity FROM portfolio WHERE student_id = ?", conn, params=(u_id,))
+                u_port = pd.read_sql("SELECT symbol, quantity FROM portfolio WHERE student_id = :s_id", engine, params={"s_id": u_id})
                 u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
                 u_total = u_cash + u_stock_eval
                 leaderboard.append({
@@ -641,5 +650,3 @@ else:
                 )
             else:
                 st.info("참가자 데이터가 없습니다.")
-
-        conn.close()
