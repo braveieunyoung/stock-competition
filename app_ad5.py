@@ -150,12 +150,12 @@ def render_admin_dashboard():
     # TAB 1: 랭킹 및 데이터 다운로드
     with tab1:
         st.subheader("🏆 전체 참가자 실시간 데이터")
-        all_users = pd.read_sql("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'", engine)
+        all_users =pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
         
         admin_leaderboard = []
         for _, u in all_users.iterrows():
             u_id, u_name, u_cash = u['student_id'], u['name'], float(u['cash'])
-            u_port = pd.read_sql("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id", engine, params={"student_id": u_id})
+            u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
             u_stock_eval = 0
             if not u_port.empty:
                 for _, row in u_port.iterrows():
@@ -311,14 +311,14 @@ def render_admin_dashboard():
 
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
-        all_users_df = pd.read_sql("SELECT student_id AS 학번, name AS 이름, cash AS 시드머니, is_registered AS 가입여부 FROM users WHERE student_id != 'admin'", engine)
+       all_students = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
         if not all_users_df.empty:
             all_users_df['시드머니'] = all_users_df['시드머니'].apply(lambda x: f"{int(x):,} 원")
             all_users_df['가입여부'] = all_users_df['가입여부'].apply(lambda x: "등록 완료" if x == 1 else "미등록(최초로그인 대기)")
             st.dataframe(all_users_df, width="stretch", hide_index=True)
 
             col_reset, col_del = st.columns(2)
-            del_students = pd.read_sql("SELECT student_id, name FROM users WHERE student_id != 'admin'", engine)
+            del_students = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
             reset_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in del_students.iterrows()}
 
             with col_reset:
