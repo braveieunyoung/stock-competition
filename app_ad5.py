@@ -441,7 +441,7 @@ else:
             ).fetchone()
         cash = float(cash_row[0]) if cash_row else 10000000.0
 
-       portfolio_df = pd.read_sql(text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), engine, params={"s_id": user_id})
+        portfolio_df = pd.read_sql(text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), engine, params={"s_id": user_id})
 
         tab1, tab2 = st.tabs(["💼 내 포트폴리오", "🥇 실시간 랭킹"])
 
