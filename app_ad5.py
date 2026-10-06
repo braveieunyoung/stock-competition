@@ -349,34 +349,35 @@ def render_admin_dashboard():
             st.info("등록된 학생이 없습니다.")
 
             col_reset, col_del = st.columns(2)
+            
             del_students = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
             reset_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in del_students.iterrows()}
-
-            with col_reset:
-                st.markdown("### 🔑 비밀번호 초기화")
-                reset_label = st.selectbox("초기화할 학생 선택", list(reset_options.keys()))
-                reset_target_id = reset_options[reset_label]
-
-                if st.button("비밀번호 초기화 실행"):
-                    with engine.begin() as conn:
-                        conn.execute(
-                            text("UPDATE users SET password = '', is_registered = 0 WHERE student_id = :s_id"),
-                            {"s_id": reset_target_id}
-                        )
-                    st.success("비밀번호가 초기화되었습니다. 재로그인 시 신규 비밀번호를 입력합니다.")
-                    st.rerun()
-
-            with col_del:
-                st.markdown("### ❌ 계정 삭제")
-                del_label = st.selectbox("삭제할 학생 선택", list(reset_options.keys()), key="del_select")
-                del_target_id = reset_options[del_label]
-
-                if st.button("선택한 학생 삭제", type="primary"):
-                    with engine.begin() as conn:
-                        conn.execute(text("DELETE FROM users WHERE student_id = :s_id"), {"s_id": del_target_id})
-                        conn.execute(text("DELETE FROM portfolio WHERE student_id = :s_id"), {"s_id": del_target_id})
-                    st.warning("학생 명단 및 투자 데이터가 삭제되었습니다.")
-                    st.rerun()
+            
+            if reset_options:
+                with col_reset:
+                    st.markdown("### 🔑 비밀번호 초기화")
+                    reset_label = st.selectbox("초기화할 학생 선택", list(reset_options.keys()))
+                    reset_target_id = reset_options[reset_label]
+                    
+                    if st.button("비밀번호 초기화 실행"):
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE users SET password = '', is_registered = 0 WHERE student_id = :s_id"), {"s_id": reset_target_id})
+                        st.success("비밀번호가 초기화되었습니다. 재로그인 시 신규 비밀번호를 입력합니다.")
+                        st.rerun()
+            
+                with col_del:
+                    st.markdown("### ❌ 계정 삭제")
+                    del_label = st.selectbox("삭제할 학생 선택", list(reset_options.keys()), key="del_select")
+                    del_target_id = reset_options[del_label]
+                    
+                    if st.button("선택한 학생 삭제", type="primary"):
+                        with engine.begin() as conn:
+                            conn.execute(text("DELETE FROM users WHERE student_id = :s_id"), {"s_id": del_target_id})
+                            conn.execute(text("DELETE FROM portfolio WHERE student_id = :s_id"), {"s_id": del_target_id})
+                        st.warning("학생 명단 및 투자 데이터가 삭제되었습니다.")
+                        st.rerun()
+            else:
+                st.info("비밀번호 초기화 및 삭제할 학생 계정이 없습니다.")
 
 # ---------------------------------------------------------
 # 4. 로그인 및 라우팅
