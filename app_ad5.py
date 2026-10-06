@@ -293,7 +293,7 @@ def render_admin_dashboard():
                     try:
                         with engine.begin() as conn:
                             # 중복 학번 확인
-                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": s_id}).fetchone()
+                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": new_id}).fetchone()
 
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
