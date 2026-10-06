@@ -229,9 +229,7 @@ def render_admin_dashboard():
                 st.caption(f"현재 예수금: **{int(curr_cash):,} 원**")
 
                 new_cash_val = st.number_input("추가할 예수금(원)", min_value=0, step=100000, value=int(curr_cash))
-
-                new_cash_val=new_cash_val+curr_cash
-                
+           
                 if st.button("개별 금액 설정 완료", type="primary"):
                     with engine.begin() as conn:
                         conn.execute(
