@@ -214,35 +214,52 @@ def render_admin_dashboard():
 
     # TAB 2: 시드 머니 관리
     with tab2:
-        st.subheader("💵 시드 머니 지급 및 수정")
-        col_m1, col_m2 = st.columns(2)
-        all_students = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
+    st.subheader("💵 시드 머니 지급 및 수정")
+    col_m1, col_m2 = st.columns(2)
+    all_students = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
 
-        with col_m1:
-            st.markdown("### 👤 개별 학생 예수금 수정")
-            if not all_students.empty:
-                student_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in all_students.iterrows()}
-                selected_label = st.selectbox("학생 선택", list(student_options.keys()))
-                target_id = student_options[selected_label]
-                
-                curr_cash = float(all_students[all_students['student_id'] == target_id]['cash'].values[0])
-                st.caption(f"현재 예수금: **{int(curr_cash):,} 원**")
-        
-                # 추가할 금액만 입력받도록 value=0 설정
-                add_cash = st.number_input("추가할 예수금 (원)", min_value=0, step=100000, value=0)
-                
-                # 최종 반영될 금액 계산
-                final_cash = int(curr_cash + add_cash)
-                st.caption(f"수정 후 예상 예수금: **{final_cash:,} 원**")
-        
-                if st.button("개별 금액 설정 완료", type="primary"):
+    # 입력창 초기화를 위한 session_state 키가 없으면 초기화
+    if "individual_add_cash" not in st.session_state:
+        st.session_state.individual_add_cash = 0
+
+    with col_m1:
+        st.markdown("### 👤 개별 학생 예수금 수정")
+        if not all_students.empty:
+            student_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in all_students.iterrows()}
+            selected_label = st.selectbox("학생 선택", list(student_options.keys()))
+            target_id = student_options[selected_label]
+            
+            curr_cash = float(all_students[all_students['student_id'] == target_id]['cash'].values[0])
+            st.caption(f"현재 예수금: **{int(curr_cash):,} 원**")
+    
+            # key를 세션 상태 변수로 지정하여 입력창 제어
+            add_cash = st.number_input(
+                "추가할 예수금 (원)", 
+                min_value=0, 
+                step=100000, 
+                key="individual_add_cash"
+            )
+            
+            # 최종 반영될 예상 금액 계산
+            final_cash = int(curr_cash + add_cash)
+            st.caption(f"수정 후 예상 예수금: **{final_cash:,} 원**")
+    
+            if st.button("개별 금액 설정 완료", type="primary"):
+                if add_cash > 0:
                     with engine.begin() as conn:
+                        # DB 단에서 기존 cash에 add_cash를 더해 바로 업데이트 (동시성 및 정확성 보장)
                         conn.execute(
-                            text("UPDATE users SET cash = :cash WHERE student_id = :student_id"),
-                            {"cash": final_cash, "student_id": target_id}
+                            text("UPDATE users SET cash = cash + :add_cash WHERE student_id = :student_id"),
+                            {"add_cash": add_cash, "student_id": target_id}
                         )
-                    st.success(f"예수금이 수정되었습니다. (최종 예수금: {final_cash:,}원)")
+                    
+                    st.success(f"예수금이 추가되었습니다. (최종 예수금: {final_cash:,}원)")
+                    
+                    # 입력창 0으로 초기화
+                    st.session_state.individual_add_cash = 0
                     st.rerun()
+                else:
+                    st.warning("추가할 예수금을 입력해 주세요.")
 
         with col_m2:
             st.markdown("### 📢 전체 학생 일괄 추가 지급")
