@@ -456,7 +456,7 @@ def render_admin_dashboard():
 # 4. 로그인 및 라우팅
 # ---------------------------------------------------------
 if st.session_state.get('user') is None:
-    st.title("📈 학생 모의주식 투자 대회")
+    st.title("📈 모의 주식 투자")
     st.subheader("로그인하여 가상 투자에 참여하세요!")
 
     col1, col2 = st.columns(2)
