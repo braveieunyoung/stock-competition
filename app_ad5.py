@@ -318,10 +318,10 @@ def render_admin_dashboard():
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
-                                # 1. users 테이블에 학생 정보 추가 (cash 컬럼 제거)
+                                # 1. users 테이블에 학생 정보 추가 (is_registered 값을 0으로 설정)
                                 db.execute(
                                     text(
-                                        "INSERT INTO users (student_id, name, is_registered) VALUES (:sid, :name, FALSE)"
+                                        "INSERT INTO users (student_id, name, is_registered) VALUES (:sid, :name, 0)"
                                     ),
                                     {"sid": new_student_id, "name": new_name},
                                 )
