@@ -7,12 +7,10 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
 from sqlalchemy import create_engine, text
-from streamlit_autorefresh import st_autorefresh
 
 # ---------------------------------------------------------
 # 1. DB 연결 설정 (Supabase PostgreSQL)
 # ---------------------------------------------------------
-st_autorefresh(interval=30000, key="data_refresh")
 
 @st.cache_resource
 def get_db_engine():
@@ -145,6 +143,8 @@ def render_admin_dashboard():
     # TAB 1: 랭킹 및 데이터 다운로드
     with tab1:
         st.subheader("🏆 전체 참가자 실시간 데이터")
+        if st.button("🔄 랭킹 새로고침", key="admin_rank_refresh"):
+            st.rerun()
         
         # init_cash가 없는 예외를 대비해 COALESCE(init_cash, cash, 10000000) 처리
         all_users = pd.read_sql(
@@ -182,7 +182,6 @@ def render_admin_dashboard():
             df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by=["수익률 (%)","총 자산 (원)"], ascending=False).reset_index(drop=True)
             df_admin_lb.index += 1
 
-            # st.column_config를 사용하여 숫자 항목 우측 정렬 및 천단위 쉼표 포맷팅 적용
             st.dataframe(
                 df_admin_lb, 
                 use_container_width=True,
@@ -191,15 +190,15 @@ def render_admin_dashboard():
                     "이름": st.column_config.TextColumn("이름"),
                     "보유 예수금 (원)": st.column_config.NumberColumn(
                         "보유 예수금 (원)",
-                        format="%,d"  # 천단위 쉼표 + 우측 정렬
+                        format="%,d"
                     ),
                     "총 자산 (원)": st.column_config.NumberColumn(
                         "총 자산 (원)",
-                        format="%,d"  # 천단위 쉼표 + 우측 정렬
+                        format="%,d"
                     ),
                     "수익률 (%)": st.column_config.NumberColumn(
                         "수익률 (%)",
-                        format="%.2f%%"  # 소수점 2자리 % + 우측 정렬
+                        format="%.2f%%"
                     )
                 }
             )
@@ -306,8 +305,8 @@ def render_admin_dashboard():
                                 updated_count += 1
                             else:
                                 conn.execute(
-                                    text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
-                                    {"s_id": s_id, "name": s_name, "cash": s_cash, "pw": s_pw, "is_reg": is_reg}
+                                    text("INSERT INTO users (student_id, name, cash, init_cash, password, is_registered) VALUES (:s_id, :name, :cash, :init_cash, :pw, :is_reg)"),
+                                    {"s_id": s_id, "name": s_name, "cash": s_cash, "init_cash": s_cash, "pw": s_pw, "is_reg": is_reg}
                                 )
                                 added_count += 1
                     
@@ -333,10 +332,8 @@ def render_admin_dashboard():
                     st.error("학번과 이름을 모두 입력해주세요.")
                 else:
                     try:
-                        # DB 작업을 수행하고 트랜잭션을 완전히 종료한 뒤 화면을 처리합니다.
                         is_success = False
                         with engine.begin() as conn:
-                            # 1. 중복 학번 확인
                             check_user = conn.execute(
                                 text("SELECT student_id FROM users WHERE student_id = :s_id"), 
                                 {"s_id": new_student_id}
@@ -345,8 +342,6 @@ def render_admin_dashboard():
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
-                                # 2. 신규 학생 INSERT (cash 값을 float으로 명시적 전달)
-                                # 신규 학생 등록 시 init_cash도 함께 저장
                                 conn.execute(
                                     text("""
                                         INSERT INTO users (student_id, name, cash, init_cash, password, is_registered) 
@@ -356,14 +351,13 @@ def render_admin_dashboard():
                                         "s_id": new_student_id, 
                                         "name": new_name, 
                                         "cash": float(new_cash_input), 
-                                        "init_cash": float(new_cash_input), # 초기 시드머니 저장
+                                        "init_cash": float(new_cash_input),
                                         "pw": new_pw, 
                                         "is_reg": is_reg
                                     }
                                 )
                                 is_success = True
 
-                        # 트랜잭션 블록(with)을 완전히 빠져나온 후(Commit 완료 후) Rerun 실행
                         if is_success:
                             st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                             st.rerun()
@@ -387,7 +381,6 @@ def render_admin_dashboard():
                 s_cash = float(row['cash'])
                 is_reg = "등록 완료" if str(row['is_registered']) == "1" else "미등록(최초로그인 대기)"
                 
-                # 학생별 보유 주식 평가금액 계산
                 u_port = pd.read_sql(
                     text("SELECT symbol, quantity FROM portfolio WHERE student_id = :s_id"), 
                     engine, 
@@ -721,26 +714,38 @@ else:
             else:
                 st.info("현재 보유 중인 주식이 없습니다. 상단에서 원하는 종목을 매수해보세요!")
 
-        # TAB 2: 랭킹
+        # TAB 2: 랭킹 (관리자 랭킹과 수익률 및 정렬 기준 일치시킴)
         with tab2:
             st.subheader("🏆 전체 참가자 실시간 랭킹")
-            if st.button("🔄 랭킹 새로고침"): st.rerun()
+            if st.button("🔄 랭킹 새로고침", key="student_rank_refresh"): 
+                st.rerun()
 
-            all_users = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
+            all_users = pd.read_sql(
+                text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
+                engine
+            )
             leaderboard = []
             for _, u in all_users.iterrows():
-                u_id, u_name, u_cash = u['student_id'], u['name'], float(u['cash'])
+                u_id, u_name = u['student_id'], u['name']
+                u_cash = float(u['cash'])
+                u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
+                
                 u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
                 u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
                 u_total = u_cash + u_stock_eval
+                
+                # init_cash 기준으로 수익률 계산
+                u_return = ((u_total - u_init_cash) / u_init_cash) * 100
+                
                 leaderboard.append({
-                    "학번": u_id, "이름": u_name,
+                    "학번": u_id, 
+                    "이름": u_name,
                     "총 자산 (원)": round(u_total),
-                    "수익률 (%)": round(((u_total - 10000000) / 10000000) * 100, 2)
+                    "수익률 (%)": round(u_return, 2)
                 })
 
             if leaderboard:
-                lb_df = pd.DataFrame(leaderboard).sort_values(by=["총 자산 (원)", "학번"], ascending=[False, True]).reset_index(drop=True)
+                lb_df = pd.DataFrame(leaderboard).sort_values(by=["수익률 (%)", "총 자산 (원)"], ascending=[False, False]).reset_index(drop=True)
                 lb_df.index += 1
 
                 st.dataframe(
@@ -748,6 +753,7 @@ else:
                     use_container_width=True,
                     column_config={
                         "학번": st.column_config.TextColumn("학번"),  
+                        "이름": st.column_config.TextColumn("이름"),  
                         "총 자산 (원)": st.column_config.NumberColumn(
                             "총 자산 (원)",
                             format="%,d"  
