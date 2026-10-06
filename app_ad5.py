@@ -311,20 +311,17 @@ with col_reg1:
                         st.error("이미 존재하는 학번입니다.")
                     else:
                         # 2. INSERT 실행 (Boolean 및 데이터 타입 명확화)
-                        is_reg_bool = True if s_pw_clean else False
-                        conn.execute(
-                            text("""
-                                INSERT INTO users (student_id, name, cash, password, is_registered) 
-                                VALUES (:s_id, :name, :cash, :pw, :is_reg)
-                            """),
-                            {
-                                "s_id": s_id_clean, 
-                                "name": s_name_clean, 
-                                "cash": float(new_s_cash), 
-                                "pw": s_pw_clean, 
-                                "is_reg": is_reg_bool
-                            }
-                        )
+                        is_reg_int = 1 if s_pw_clean else 0
+                        conn.execute(text("""
+                            INSERT INTO users (student_id, name, cash, password, is_registered) 
+                            VALUES (:s_id, :name, :cash, :pw, :is_reg)
+                        """), {
+                            "s_id": s_id_clean, 
+                            "name": s_name_clean, 
+                            "cash": float(new_s_cash), 
+                            "pw": s_pw_clean, 
+                            "is_reg": is_reg_int  # 1 또는 0으로 전달
+                        })
                         st.success(f"🎉 {s_id_clean} {s_name_clean} 학생이 성공적으로 등록되었습니다.")
                         st.rerun()
             except Exception as e:
