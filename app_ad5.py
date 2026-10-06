@@ -299,42 +299,42 @@ def render_admin_dashboard():
             # form 내부에서는 st.form_submit_button 을 사용합니다.
             submit_reg = st.form_submit_button("개별 학생 등록", type="primary")
         
-        if submit_reg:
-            s_id_clean = new_s_id.strip() if new_s_id else ""
-            s_name_clean = new_s_name.strip() if new_s_name else ""
-            s_pw_clean = new_s_pw.strip() if new_s_pw else ""
-        
-            if not s_id_clean or not s_name_clean:
-                st.warning("⚠️ 신규 학번과 학생 이름을 모두 입력해 주세요.")
-            else:
-                try:
-                    with engine.begin() as conn:
-                        res = conn.execute(
-                            text("SELECT student_id FROM users WHERE student_id = :s_id"), 
-                            {"s_id": s_id_clean}
-                        ).fetchone()
-        
-                        if res:
-                            st.error("이미 존재하는 학번입니다.")
-                        else:
-                            is_reg_int = 1 if s_pw_clean else 0
-                            conn.execute(
-                                text("""
-                                    INSERT INTO users (student_id, name, cash, password, is_registered) 
-                                    VALUES (:s_id, :name, :cash, :pw, :is_reg)
-                                """),
-                                {
-                                    "s_id": s_id_clean, 
-                                    "name": s_name_clean, 
-                                    "cash": float(new_s_cash), 
-                                    "pw": s_pw_clean, 
-                                    "is_reg": is_reg_int
-                                }
-                            )
-                            st.success(f"🎉 {s_id_clean} {s_name_clean} 학생이 성공적으로 등록되었습니다.")
-                            st.rerun()
-                except Exception as e:
-                    st.error(f"등록 중 오류가 발생했습니다: {e}")
+    if submit_reg:
+        s_id_clean = new_s_id.strip() if new_s_id else ""
+        s_name_clean = new_s_name.strip() if new_s_name else ""
+        s_pw_clean = new_s_pw.strip() if new_s_pw else ""
+    
+        if not s_id_clean or not s_name_clean:
+            st.warning("⚠️ 신규 학번과 학생 이름을 모두 입력해 주세요.")
+        else:
+            try:
+                with engine.begin() as conn:
+                    res = conn.execute(
+                        text("SELECT student_id FROM users WHERE student_id = :s_id"), 
+                        {"s_id": s_id_clean}
+                    ).fetchone()
+    
+                    if res:
+                        st.error("이미 존재하는 학번입니다.")
+                    else:
+                        is_reg_int = 1 if s_pw_clean else 0
+                        conn.execute(
+                            text("""
+                                INSERT INTO users (student_id, name, cash, password, is_registered) 
+                                VALUES (:s_id, :name, :cash, :pw, :is_reg)
+                            """),
+                            {
+                                "s_id": s_id_clean, 
+                                "name": s_name_clean, 
+                                "cash": float(new_s_cash), 
+                                "pw": s_pw_clean, 
+                                "is_reg": is_reg_int
+                            }
+                        )
+                        st.success(f"🎉 {s_id_clean} {s_name_clean} 학생이 성공적으로 등록되었습니다.")
+                        st.rerun()
+            except Exception as e:
+                st.error(f"등록 중 오류가 발생했습니다: {e}")
         
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
