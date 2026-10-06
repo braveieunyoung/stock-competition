@@ -9,7 +9,7 @@ import plotly.express as px
 from sqlalchemy import create_engine, text
 
 # ---------------------------------------------------------
-# 1. DB 연결 설정 (Supabase PostgreSQL)
+# 1. DB 연결 및 환율 함수 설정
 # ---------------------------------------------------------
 
 @st.cache_resource
@@ -26,6 +26,22 @@ def get_db_engine():
     )
 
 engine = get_db_engine()
+
+# 실시간 달러/원 환율 가져오기 (5분 캐싱, 실패 시 백업 1350원)
+@st.cache_data(ttl=300, show_spinner=False)
+def get_exchange_rate():
+    try:
+        ticker = yf.Ticker("USDKRW=X")
+        rate = ticker.fast_info.get('lastPrice', None)
+        if not rate:
+            df = ticker.history(period="1d")
+            if not df.empty:
+                rate = float(df['Close'].iloc[-1])
+        if rate and rate > 0:
+            return float(rate)
+    except Exception:
+        pass
+    return 1350.0
 
 # 종목 코드 설정
 STOCKS = {
@@ -92,7 +108,8 @@ def get_current_price(symbol):
                 if not df.empty:
                     price_usd = float(df['Close'].iloc[-1])
             if price_usd and price_usd > 0:
-                return float(price_usd * 1350.0)
+                exchange_rate = get_exchange_rate()  # 실시간 환율 적용
+                return float(price_usd * exchange_rate)
         except Exception:
             pass
     return 0.0
@@ -105,8 +122,9 @@ def get_stock_history(symbol):
         if not df.empty:
             clean_symbol = symbol.replace('.KS', '').replace('.KQ', '').strip()
             if not clean_symbol.isdigit():
+                exchange_rate = get_exchange_rate()  # 실시간 환율 적용
                 for col in ['Open', 'High', 'Low', 'Close']:
-                    df[col] = df[col] * 1350.0
+                    df[col] = df[col] * exchange_rate
             return df.reset_index()
     except Exception:
         pass
@@ -146,7 +164,6 @@ def render_admin_dashboard():
         if st.button("🔄 랭킹 새로고침", key="admin_rank_refresh"):
             st.rerun()
         
-        # init_cash가 없는 예외를 대비해 COALESCE(init_cash, cash, 10000000) 처리
         all_users = pd.read_sql(
             text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
             engine
@@ -167,7 +184,6 @@ def render_admin_dashboard():
                 
             u_total_assets = u_cash + u_stock_eval
             
-            # 개별 학생의 초기 시드머니(u_init_cash) 기준으로 수익률 계산
             u_return = ((u_total_assets - u_init_cash) / u_init_cash) * 100
             
             admin_leaderboard.append({
@@ -203,7 +219,6 @@ def render_admin_dashboard():
                 }
             )
 
-            # CSV 다운로드용 데이터
             csv_data = df_admin_lb.to_csv(index=True, encoding="utf-8-sig").encode("utf-8-sig")
             st.download_button(
                 label="📥 랭킹 데이터 CSV 다운로드",
@@ -235,7 +250,6 @@ def render_admin_dashboard():
                 final_cash = int(curr_cash + add_cash)
                 st.caption(f"수정 후 예상 예수금: **{final_cash:,} 원**")
         
-                # 처리 콜백 함수 정의
                 def update_individual_cash():
                     val = st.session_state.individual_add_cash
                     if val > 0:
@@ -244,7 +258,7 @@ def render_admin_dashboard():
                                 text("UPDATE users SET cash = cash + :add_cash WHERE student_id = :student_id"),
                                 {"add_cash": val, "student_id": target_id}
                             )
-                        st.session_state.individual_add_cash = 0  # 콜백 내에서는 안전하게 초기화 가능
+                        st.session_state.individual_add_cash = 0
                         st.toast(f"예수금이 추가되었습니다. (최종 예수금: {curr_cash + val:,.0f}원)")
     
                 st.button("개별 금액 설정 완료", type="primary", on_click=update_individual_cash)
@@ -519,11 +533,9 @@ else:
             st.session_state.user = None
             st.rerun()
 
-    # [A] 관리자 모드
     if user_id == "admin":
         render_admin_dashboard()
 
-    # [B] 학생 모드 (통합 포트폴리오 + 랭킹)
     else:
         with engine.connect() as conn:
             cash_row = conn.execute(
@@ -536,7 +548,6 @@ else:
 
         tab1, tab2 = st.tabs(["💼 내 포트폴리오", "🥇 실시간 랭킹"])
 
-        # TAB 1: 내 포트폴리오
         with tab1:
             st.subheader("💼 내 보유 자산 현황")
             total_eval = cash
@@ -556,7 +567,6 @@ else:
 
             st.divider()
 
-            # 주식 차트 및 매수 창
             st.subheader("📈 관심 종목 차트 및 매수")
             col_select, col_price, col_cash = st.columns([2, 1, 1])
             with col_select:
@@ -645,7 +655,6 @@ else:
 
             st.divider()
 
-            # 보유 종목 목록 및 빠른 매도
             st.markdown("### 📋 보유 종목 목록 및 빠른 매도")
 
             if not portfolio_df.empty:
@@ -714,7 +723,6 @@ else:
             else:
                 st.info("현재 보유 중인 주식이 없습니다. 상단에서 원하는 종목을 매수해보세요!")
 
-        # TAB 2: 랭킹 (관리자 랭킹과 수익률 및 정렬 기준 일치시킴)
         with tab2:
             st.subheader("🏆 전체 참가자 실시간 랭킹")
             if st.button("🔄 랭킹 새로고침", key="student_rank_refresh"): 
@@ -734,7 +742,6 @@ else:
                 u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
                 u_total = u_cash + u_stock_eval
                 
-                # init_cash 기준으로 수익률 계산
                 u_return = ((u_total - u_init_cash) / u_init_cash) * 100
                 
                 leaderboard.append({
