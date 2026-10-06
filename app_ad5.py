@@ -204,7 +204,7 @@ def render_admin_dashboard():
             )
 
             # CSV 다운로드용 데이터
-            csv_data = df_admin_lb.to_csv(index=True, encoding="utf-8-sig")
+            csv_data = df_admin_lb.to_csv(index=True, encoding="utf-8-sig").encode("utf-8-sig")
             st.download_button(
                 label="📥 랭킹 데이터 CSV 다운로드",
                 data=csv_data,
