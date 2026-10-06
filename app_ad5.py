@@ -258,8 +258,7 @@ def render_admin_dashboard():
 
                             res = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": s_id}).fetchone()
                             if res:
-                                conn.execute(
-                                    text("UPDATE users SET name = :name, password = :pw, cash = :cash, is_registered = :is_reg WHERE student_id = :s_id"),
+                                conn.execute(text("UPDATE users SET name = :name, password = :pw, cash = :cash, is_registered = :is_reg WHERE student_id = :s_id"),
                                     {"name": s_name, "pw": s_pw, "cash": s_cash, "is_reg": is_reg, "s_id": s_id}
                                 )
                                 updated_count += 1
@@ -288,23 +287,15 @@ def render_admin_dashboard():
                     st.error("학번과 이름을 모두 입력해주세요.")
                 else:
                     try:
-                        with engine.begin() as db:
+                        with engine.begin() as conn:
                             # 중복 학번 확인
-                            check_user = db.execute(
-                                text("SELECT student_id FROM users WHERE student_id = :sid"),
-                                {"sid": new_student_id},
-                            ).fetchone()
+                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :sid"), {"sid": new_student_id}).fetchone()
 
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
                                 # users 테이블에 기본 시드머니(10,000,000원)와 함께 신규 등록
-                                db.execute(
-                                    text(
-                                        "INSERT INTO users (student_id, name, cash, is_registered) VALUES (:sid, :name, 10000000.0, 0)"
-                                    ),
-                                    {"sid": new_student_id, "name": new_name},
-                                )
+                                conn.execute(text("INSERT INTO users (student_id, name, cash, is_registered) VALUES (:sid, :name, 10000000.0, 0)"),{"sid": new_student_id, "name": new_name})
 
                                 st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                                 st.rerun()
@@ -377,8 +368,8 @@ if st.session_state.get('user') is None:
         s_pw = password.strip()
 
         if s_id.lower() == "admin":
-            with engine.connect() as conn:
-                res = conn.execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
+            with engine.ect() as :
+                res = .execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
                 admin_pw = res[0] if res else ""
 
             if s_pw == admin_pw:
@@ -391,8 +382,8 @@ if st.session_state.get('user') is None:
             if not s_id or not s_name or not s_pw:
                 st.warning("학번, 이름, 비밀번호를 모두 입력해 주세요.")
             else:
-                with engine.connect() as conn:
-                    user_row = conn.execute(
+                with engine.ect() as :
+                    user_row = .execute(
                         text("SELECT name, password, is_registered FROM users WHERE student_id = :s_id"),
                         {"s_id": s_id}
                     ).fetchone()
@@ -406,8 +397,8 @@ if st.session_state.get('user') is None:
                         st.error("학번과 이름이 일치하지 않습니다!")
 
                     elif is_reg == 0:
-                        with engine.begin() as conn:
-                            conn.execute(
+                        with engine.begin() as :
+                            .execute(
                                 text("UPDATE users SET password = :pw, is_registered = 1 WHERE student_id = :s_id"),
                                 {"pw": s_pw, "s_id": s_id}
                             )
