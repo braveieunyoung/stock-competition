@@ -30,7 +30,17 @@ engine = create_engine(
 
 @st.cache_resource
 def get_db_engine():
-    return create_engine(DATABASE_URL, pool_pre_ping=True)
+    db_url = st.secrets["database"]["url"]
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    return create_engine(
+        db_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={"sslmode": "require", "connect_timeout": 10},
+    )
+
 
 engine = get_db_engine()
 
@@ -351,10 +361,10 @@ def render_admin_dashboard():
         else:
             st.info("등록된 학생이 없습니다.")
 
-            col_reset, col_del = st.columns(2)
-            
-            del_students = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
-            reset_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in del_students.iterrows()}
+        col_reset, col_del = st.columns(2)
+        
+        del_students = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
+        reset_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in del_students.iterrows()}
             
             if reset_options:
                 with col_reset:
