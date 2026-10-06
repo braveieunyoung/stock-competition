@@ -280,11 +280,11 @@ def render_admin_dashboard():
         with st.form("single_student_form"):
             new_student_id = st.text_input("학번 (예: 10101)").strip()
             new_name = st.text_input("이름").strip()
-            new_pw = st.text_input("비밀번호").strip() 
-            new_cash = st.text_input("시드머니").strip() 
+            new_pw = st.text_input("비밀번호 (선택사항 - 미입력 시 최초 로그인 시 설정)", type="password").strip() 
+            new_cash = st.number_input("시드머니 (원)", min_value=0, value=10000000, step=1000000)
             
             is_reg = 1 if new_pw else 0
-            submitted = st.form_submit_button("학생 추가")
+            submitted = st.form_submit_button("학생 추가", type="primary")
 
             if submitted:
                 if not new_student_id or not new_name:
@@ -293,17 +293,28 @@ def render_admin_dashboard():
                     try:
                         with engine.begin() as conn:
                             # 중복 학번 확인
-                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": new_student_id}).fetchone()
+                            check_user = conn.execute(
+                                text("SELECT student_id FROM users WHERE student_id = :s_id"), 
+                                {"s_id": new_student_id}
+                            ).fetchone()
 
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
-                                # users 테이블에 기본 시드머니(10,000,000원)와 함께 신규 등록
-                                conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
-                                             {"s_id": new_student_id, "name": new_name, "cash": new_cash, "pw": new_pw, "is_reg": is_reg})
-                                 
-                                #added_count += 1
-
+                                # users 테이블에 float/int 형태의 시드머니 전달
+                                conn.execute(
+                                    text("""
+                                        INSERT INTO users (student_id, name, cash, password, is_registered) 
+                                        VALUES (:s_id, :name, :cash, :pw, :is_reg)
+                                    """),
+                                    {
+                                        "s_id": new_student_id, 
+                                        "name": new_name, 
+                                        "cash": float(new_cash), 
+                                        "pw": new_pw, 
+                                        "is_reg": is_reg
+                                    }
+                                )
                                 st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                                 st.rerun()
                     except Exception as e:
