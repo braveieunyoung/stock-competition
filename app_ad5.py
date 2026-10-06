@@ -283,59 +283,70 @@ def render_admin_dashboard():
             except Exception as e:
                 st.error(f"CSV 파일 처리 중 오류가 발생했습니다: {e}")
 
-        st.divider()
-        st.subheader("➕ 개별 신규 학생 등록")
-        col_reg1, col_reg2 = st.columns(2)
-        
-        with col_reg1:
-            new_s_id = st.text_input("신규 학번", max_chars=10)
-            new_s_name = st.text_input("신규 학생 이름")
-            new_s_pw = st.text_input("초기 비밀번호 (선택사항, 비워두면 학생이 설정)", type="password")
-            new_s_cash = st.number_input("초기 시드머니(원)", value=10000000, step=1000000)
-        
-            if st.button("개별 학생 등록"):
-                s_id_clean = new_s_id.strip() if new_s_id else ""
-                s_name_clean = new_s_name.strip() if new_s_name else ""
-                s_pw_clean = new_s_pw.strip() if new_s_pw else ""
-        
-                if s_id_clean and s_name_clean:
-                    try:
-                        with engine.begin() as conn:
-                            # 1. 중복 체크
-                            res = conn.execute(
-                                text("SELECT student_id FROM users WHERE student_id = :s_id"), 
-                                {"s_id": s_id_clean}
-                            ).fetchone()
-                            
-                            if res:
-                                st.error("이미 존재하는 학번입니다.")
-                            else:
-                                # 2. INSERT 실행 (Boolean 및 데이터 타입 명확화)
-                                is_reg_int = 1 if s_pw_clean else 0
-                                conn.execute(text("""
-                                    INSERT INTO users (student_id, name, cash, password, is_registered) 
-                                    VALUES (:s_id, :name, :cash, :pw, :is_reg)
-                                """), {
-                                    "s_id": s_id_clean, 
-                                    "name": s_name_clean, 
-                                    "cash": float(new_s_cash), 
-                                    "pw": s_pw_clean, 
-                                    "is_reg": is_reg_int  # 1 또는 0으로 전달
-                                })
-                                st.success(f"🎉 {s_id_clean} {s_name_clean} 학생이 성공적으로 등록되었습니다.")
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"등록 중 오류가 발생했습니다: {e}")
-                else:
-                    st.error("학번과 이름을 모두 입력해 주세요.")
-
-        st.divider()
-        st.subheader("👥 등록된 학생 명단 및 회원 관리")
-        all_users_df = pd.read_sql(text("SELECT student_id AS 학번, name AS 이름, cash AS 시드머니, is_registered AS 가입여부 FROM users WHERE student_id != 'admin'"), engine)
-        if not all_users_df.empty:
-            all_users_df['시드머니'] = all_users_df['시드머니'].apply(lambda x: f"{int(x):,} 원")
-            all_users_df['가입여부'] = all_users_df['가입여부'].apply(lambda x: "등록 완료" if x == 1 else "미등록(최초로그인 대기)")
-            st.dataframe(all_users_df, width="stretch", hide_index=True)
+            st.divider()
+            st.subheader("➕ 개별 신규 학생 등록")
+            col_reg1, col_reg2 = st.columns(2)
+            
+            with col_reg1:
+                new_s_id = st.text_input("신규 학번", max_chars=10)
+                new_s_name = st.text_input("신규 학생 이름")
+                new_s_pw = st.text_input("초기 비밀번호 (선택사항, 비워두면 학생이 설정)", type="password")
+                new_s_cash = st.number_input("초기 시드머니(원)", value=10000000, step=1000000)
+            
+                if st.button("개별 학생 등록"):
+                    s_id_clean = new_s_id.strip() if new_s_id else ""
+                    s_name_clean = new_s_name.strip() if new_s_name else ""
+                    s_pw_clean = new_s_pw.strip() if new_s_pw else ""
+            
+                    if s_id_clean and s_name_clean:
+                        try:
+                            with engine.begin() as conn:
+                                # 1. 중복 체크
+                                res = conn.execute(
+                                    text("SELECT student_id FROM users WHERE student_id = :s_id"), 
+                                    {"s_id": s_id_clean}
+                                ).fetchone()
+            
+                                if res:
+                                    st.error("이미 존재하는 학번입니다.")
+                                else:
+                                    # 2. INSERT 실행 (비밀번호 지정 시 1, 미지정 시 0)
+                                    is_reg_int = 1 if s_pw_clean else 0
+                                    conn.execute(
+                                        text("""
+                                            INSERT INTO users (student_id, name, cash, password, is_registered) 
+                                            VALUES (:s_id, :name, :cash, :pw, :is_reg)
+                                        """),
+                                        {
+                                            "s_id": s_id_clean, 
+                                            "name": s_name_clean, 
+                                            "cash": float(new_s_cash), 
+                                            "pw": s_pw_clean, 
+                                            "is_reg": is_reg_int
+                                        }
+                                    )
+                                    st.success(f"🎉 {s_id_clean} {s_name_clean} 학생이 성공적으로 등록되었습니다.")
+                                    st.rerun()
+                        except Exception as e:
+                            st.error(f"등록 중 오류가 발생했습니다: {e}")
+                    else:
+                        st.error("학번과 이름을 모두 입력해 주세요.")
+            
+            st.divider()
+            st.subheader("👥 등록된 학생 명단 및 회원 관리")
+            
+            # 등록 후 즉시 반영되도록 ORDER BY 추가 및 최신 DB 읽기
+            all_users_df = pd.read_sql(
+                text("SELECT student_id AS 학번, name AS 이름, cash AS 시드머니, is_registered AS 가입여부 FROM users WHERE student_id != 'admin' ORDER BY student_id ASC"), 
+                engine
+            )
+            
+            if not all_users_df.empty:
+                all_users_df['시드머니'] = all_users_df['시드머니'].apply(lambda x: f"{int(x):,} 원")
+                all_users_df['가입여부'] = all_users_df['가입여부'].apply(lambda x: "등록 완료" if int(x) == 1 else "미등록(최초로그인 대기)")
+                st.dataframe(all_users_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("등록된 학생이 없습니다.")
 
             col_reset, col_del = st.columns(2)
             del_students = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
