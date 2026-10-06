@@ -280,6 +280,10 @@ def render_admin_dashboard():
         with st.form("single_student_form"):
             new_student_id = st.text_input("학번 (예: 10101)").strip()
             new_name = st.text_input("이름").strip()
+            new_pw = st.text_input("비밀번호").strip() 
+            new_cash = st.text_input("시드머니").strip() 
+            
+            is_reg = 1 if new_pw else 0
             submitted = st.form_submit_button("학생 추가")
 
             if submitted:
@@ -295,7 +299,8 @@ def render_admin_dashboard():
                                 st.error("이미 존재하는 학번입니다.")
                             else:
                                 # users 테이블에 기본 시드머니(10,000,000원)와 함께 신규 등록
-                                conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"), {"s_id": s_id, "name": s_name, "cash": s_cash, "pw": s_pw, "is_reg": is_reg})
+                                conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
+                                             {"s_id": new_student_id, "name": new_name, "cash": new_cash, "pw": new_pw, "is_reg": is_reg})
                                  
                                 added_count += 1
 
