@@ -7,27 +7,10 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
 from sqlalchemy import create_engine, text
-from sqlalchemy import create_engine
 
 # ---------------------------------------------------------
 # 1. DB 연결 설정 (Supabase PostgreSQL)
 # ---------------------------------------------------------
-DATABASE_URL = st.secrets["database"]["url"]  
-
-# postgresql:// 로 시작하면 psycopg2 드라이버를 지정하도록 변경
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-    
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,      # 끊어진 연결 자동 재접속
-    pool_recycle=300,        # 5분마다 연결 재재생
-    connect_args={
-        "sslmode": "require",
-        "connect_timeout": 10
-    }
-)
-
 @st.cache_resource
 def get_db_engine():
     db_url = st.secrets["database"]["url"]
@@ -36,11 +19,10 @@ def get_db_engine():
 
     return create_engine(
         db_url,
-        pool_pre_ping=True,
-        pool_recycle=300,
+        pool_pre_ping=True,      # 끊어진 연결 자동 재접속
+        pool_recycle=300,        # 5분마다 연결 재재생
         connect_args={"sslmode": "require", "connect_timeout": 10},
     )
-
 
 engine = get_db_engine()
 
@@ -160,7 +142,7 @@ def render_admin_dashboard():
     # TAB 1: 랭킹 및 데이터 다운로드
     with tab1:
         st.subheader("🏆 전체 참가자 실시간 데이터")
-        all_users =pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
+        all_users = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
         
         admin_leaderboard = []
         for _, u in all_users.iterrows():
@@ -309,34 +291,22 @@ def render_admin_dashboard():
                         with engine.begin() as db:
                             # 중복 학번 확인
                             check_user = db.execute(
-                                text(
-                                    "SELECT * FROM users WHERE student_id = :sid"
-                                ),
+                                text("SELECT student_id FROM users WHERE student_id = :sid"),
                                 {"sid": new_student_id},
                             ).fetchone()
 
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
-                                # 1. users 테이블에 학생 정보 추가 (is_registered 값을 0으로 설정)
+                                # users 테이블에 기본 시드머니(10,000,000원)와 함께 신규 등록
                                 db.execute(
                                     text(
-                                        "INSERT INTO users (student_id, name, is_registered) VALUES (:sid, :name, 0)"
+                                        "INSERT INTO users (student_id, name, cash, is_registered) VALUES (:sid, :name, 10000000.0, 0)"
                                     ),
                                     {"sid": new_student_id, "name": new_name},
                                 )
 
-                                # 2. portfolios 테이블에 초기 시드머니(1,000만원) 생성
-                                db.execute(
-                                    text(
-                                        "INSERT INTO portfolios (student_id, cash_balance) VALUES (:sid, 10000000.0)"
-                                    ),
-                                    {"sid": new_student_id},
-                                )
-
-                                st.success(
-                                    f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!"
-                                )
+                                st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                                 st.rerun()
                     except Exception as e:
                         st.error(f"등록 중 오류가 발생했습니다: {e}")
