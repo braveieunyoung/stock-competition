@@ -302,7 +302,7 @@ def render_admin_dashboard():
                                 conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
                                              {"s_id": new_student_id, "name": new_name, "cash": new_cash, "pw": new_pw, "is_reg": is_reg})
                                  
-                                added_count += 1
+                                #added_count += 1
 
                                 st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                                 st.rerun()
@@ -351,7 +351,7 @@ def render_admin_dashboard():
                         conn.execute(text("DELETE FROM users WHERE student_id = :s_id"), {"s_id": del_target_id})
                         conn.execute(text("DELETE FROM portfolio WHERE student_id = :s_id"), {"s_id": del_target_id})
 
-                        added_count -= 1
+                        #added_count -= 1
                     st.warning("학생 명단 및 투자 데이터가 삭제되었습니다.")
                     st.rerun()
         else:
