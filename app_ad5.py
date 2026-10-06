@@ -286,30 +286,30 @@ def render_admin_dashboard():
             is_reg = 1 if new_pw else 0
             submitted = st.form_submit_button("학생 추가", type="primary")
 
-            if submitted:
-                if not new_student_id or not new_name:
-                    st.error("학번과 이름을 모두 입력해주세요.")
-                else:
-                    try:
-                        with engine.begin() as conn:
-                            # 중복 학번 확인
-                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": new_student_id}).fetchone()
+        if submitted:
+            if not new_student_id or not new_name:
+                st.error("학번과 이름을 모두 입력해주세요.")
+            else:
+                try:
+                    with engine.begin() as conn:
+                        # 중복 학번 확인
+                        check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": new_student_id}).fetchone()
 
-                            if check_user:
-                                st.error("이미 존재하는 학번입니다.")
-                            else:
-                                conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
-                                    {"s_id": new_student_id, 
-                                     "name": new_name, 
-                                     "cash": float(new_cash), 
-                                     "pw": new_pw, 
-                                     "is_reg": is_reg
-                                    }
-                                )
-                                st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"등록 중 오류가 발생했습니다: {e}")
+                        if check_user:
+                            st.error("이미 존재하는 학번입니다.")
+                        else:
+                            conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
+                                {"s_id": new_student_id, 
+                                 "name": new_name, 
+                                 "cash": float(new_cash), 
+                                 "pw": new_pw, 
+                                 "is_reg": is_reg
+                                }
+                            )
+                            st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"등록 중 오류가 발생했습니다: {e}")
         
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
@@ -350,7 +350,6 @@ def render_admin_dashboard():
                         conn.execute(text("DELETE FROM users WHERE student_id = :s_id"), {"s_id": del_target_id})
                         conn.execute(text("DELETE FROM portfolio WHERE student_id = :s_id"), {"s_id": del_target_id})
 
-                        #added_count -= 1
                     st.warning("학생 명단 및 투자 데이터가 삭제되었습니다.")
                     st.rerun()
         else:
