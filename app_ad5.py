@@ -368,7 +368,7 @@ if st.session_state.get('user') is None:
         s_pw = password.strip()
 
         if s_id.lower() == "admin":
-            with engine.connect() as conn:
+            with engine.connect() as :
                 res = .execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
                 admin_pw = res[0] if res else ""
 
