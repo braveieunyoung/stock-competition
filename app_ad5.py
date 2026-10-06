@@ -176,7 +176,7 @@ def render_admin_dashboard():
             })
 
         if admin_leaderboard:
-            df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by="총 자산 (원)", ascending=False).reset_index(drop=True)
+            df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by=["수익률 (%)","총 자산 (원)"], ascending=False).reset_index(drop=True)
             df_admin_lb.index += 1
 
             # st.column_config를 사용하여 숫자 항목 우측 정렬 및 천단위 쉼표 포맷팅 적용
