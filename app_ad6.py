@@ -598,28 +598,31 @@ else:
     if user_id == "admin":
         render_admin_dashboard()
 
-    # 일반 학생 사용자인 경우 대시보드 출력
+   # [B] 학생 모드 (통합 포트폴리오 + 랭킹)
     else:
-        # DB에서 현재 잔여 예수금(현금) 가져오기
+        # DB에서 예수금(cash)과 초기 시드머니(init_cash)를 함께 조회
         with engine.connect() as conn:
-            cash_row = conn.execute(
-                text("SELECT cash FROM users WHERE student_id = :s_id"),
+            user_row = conn.execute(
+                text("SELECT cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id = :s_id"),
                 {"s_id": user_id}
             ).fetchone()
-        cash = float(cash_row[0]) if cash_row else 10000000.0
-
-        # DB에서 보유 주식 포트폴리오 가져오기
+    
+        if user_row:
+            cash = float(user_row[0])
+            init_cash = float(user_row[1]) if float(user_row[1]) > 0 else 10000000.0
+        else:
+            cash = 10000000.0
+            init_cash = 10000000.0
+    
         portfolio_df = pd.read_sql(text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), engine, params={"s_id": user_id})
-
+    
         tab1, tab2 = st.tabs(["💼 내 포트폴리오", "🥇 실시간 랭킹"])
-
-        # -----------------------------------------------------
-        # TAB 1: 내 포트폴리오 & 매수/매도 거래 화면
-        # -----------------------------------------------------
+    
+        # TAB 1: 내 포트폴리오
         with tab1:
             st.subheader("💼 내 보유 자산 현황")
             total_eval = cash # 총 평가 자산의 초기값 = 보유 현금
-
+    
             if not portfolio_df.empty:
                 # 보유 주식의 실시간 평가 금액 계산
                 portfolio_df['현재가'] = portfolio_df['symbol'].apply(get_current_price)
@@ -629,11 +632,13 @@ else:
                 
                 total_eval += portfolio_df['평가금액'].sum() # 총 자산 = 현금 + 주식 평가액 합계
                 
-            # 자산 요약 메트릭 카드
+            # 자산 요약 메트릭 카드 (init_cash 기준 누적 수익률 계산)
+            cum_return = ((total_eval - init_cash) / init_cash) * 100
+    
             col_p1, col_p2, col_p3 = st.columns(3)
             col_p1.metric("총 평가 자산", f"{total_eval:,.0f} 원")
             col_p2.metric("예수금 (현금)", f"{cash:,.0f} 원")
-            col_p3.metric("누적 수익률", f"{((total_eval - 10000000) / 10000000) * 100:+.2f} %")
+            col_p3.metric("누적 수익률", f"{cum_return:+.2f} %")
 
             st.divider()
 
