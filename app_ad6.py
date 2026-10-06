@@ -54,10 +54,10 @@ def get_exchange_rate():
             return float(rate)
     except Exception:
         pass
-    return 1350.0 # 환율 조회 실패 시 사용할 예비(Fallback) 환율값
+    return 1350.0       # 환율 조회 실패 시 사용할 예비(Fallback) 환율값
 
 
-# 대회에서 거래 가능한 종목 리스트 사전 (종목명: yfinance/네이버 심볼)
+# 거래 가능한 종목 리스트 사전 (종목명: yfinance/네이버 심볼)
 STOCKS = {
     "삼성전자": "005930.KS",
     "SK하이닉스": "000660.KS",
