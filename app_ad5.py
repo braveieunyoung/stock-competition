@@ -298,7 +298,7 @@ def render_admin_dashboard():
                         if check_user:
                             st.error("이미 존재하는 학번입니다.")
                         else:
-                            conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
+                            conn.execute(text("INSERT INTO users(student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
                                 {"s_id": new_student_id, 
                                  "name": new_name, 
                                  "cash": float(new_cash), 
@@ -306,6 +306,7 @@ def render_admin_dashboard():
                                  "is_reg": is_reg
                                 }
                             )
+                       
                             st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                             st.rerun()
                 except Exception as e:
