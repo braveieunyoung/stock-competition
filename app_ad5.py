@@ -289,13 +289,18 @@ def render_admin_dashboard():
                     try:
                         with engine.begin() as conn:
                             # 중복 학번 확인
-                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :sid"), {"sid": new_student_id}).fetchone()
+                            check_user = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": s_id}).fetchone()
 
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
                                 # users 테이블에 기본 시드머니(10,000,000원)와 함께 신규 등록
-                                conn.execute(text("INSERT INTO users (student_id, name, cash, is_registered) VALUES (:sid, :name, 10000000.0, 0)"),{"sid": new_student_id, "name": new_name})
+                                 conn.execute(
+                                    text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
+                                    {"s_id": s_id, "name": s_name, "cash": s_cash, "pw": s_pw, "is_reg": is_reg}
+                                )
+                                                       
+                                added_count += 1
 
                                 st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
                                 st.rerun()
@@ -343,6 +348,8 @@ def render_admin_dashboard():
                     with engine.begin() as conn:
                         conn.execute(text("DELETE FROM users WHERE student_id = :s_id"), {"s_id": del_target_id})
                         conn.execute(text("DELETE FROM portfolio WHERE student_id = :s_id"), {"s_id": del_target_id})
+
+                        added_count -= 1
                     st.warning("학생 명단 및 투자 데이터가 삭제되었습니다.")
                     st.rerun()
         else:
