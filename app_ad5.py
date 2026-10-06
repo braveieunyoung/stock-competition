@@ -133,7 +133,7 @@ def get_stock_history(symbol):
 # ---------------------------------------------------------
 # 2. 페이지 및 스타일 설정
 # ---------------------------------------------------------
-st.set_page_config(page_title="학생 모의주식 투자 대회", layout="wide")
+st.set_page_config(page_title="모의주식 투자", layout="wide")
 
 st.markdown("""
     <style>
@@ -461,8 +461,8 @@ if st.session_state.get('user') is None:
 
     col1, col2 = st.columns(2)
     with col1:
-        student_id = st.text_input("학번 (관리자: admin)", max_chars=10)
-        name = st.text_input("이름 (관리자인 경우 생략 가능)")
+        student_id = st.text_input("학번", max_chars=10)
+        name = st.text_input("이름")
         password = st.text_input("비밀번호", type="password")
         login_button = st.button("로그인 / 접속하기", type="primary")
 
