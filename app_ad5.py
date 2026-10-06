@@ -7,10 +7,13 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
 from sqlalchemy import create_engine, text
+from streamlit_autorefresh import st_autorefresh
 
 # ---------------------------------------------------------
 # 1. DB 연결 설정 (Supabase PostgreSQL)
 # ---------------------------------------------------------
+st_autorefresh(interval=10000, key="data_refresh")
+
 @st.cache_resource
 def get_db_engine():
     db_url = st.secrets["database"]["url"]
@@ -46,7 +49,7 @@ STOCKS = {
     "엔비디아 (미국)": "NVDA"
 }
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=10, show_spinner=False)
 def get_current_price(symbol):
     clean_symbol = symbol.replace('.KS', '').replace('.KQ', '').strip()
     if clean_symbol.isdigit():
