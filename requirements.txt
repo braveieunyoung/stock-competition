@@ -6,3 +6,4 @@ yfinance
 plotly
 sqlalchemy
 psycopg2-binary
+streamlit-autorefresh
