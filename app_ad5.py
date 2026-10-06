@@ -142,11 +142,19 @@ def render_admin_dashboard():
     # TAB 1: 랭킹 및 데이터 다운로드
     with tab1:
         st.subheader("🏆 전체 참가자 실시간 데이터")
-        all_users = pd.read_sql(text("SELECT student_id, name, cash FROM users WHERE student_id != 'admin'"), engine)
+        
+        # init_cash가 없는 예외를 대비해 COALESCE(init_cash, cash, 10000000) 처리
+        all_users = pd.read_sql(
+            text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
+            engine
+        )
         
         admin_leaderboard = []
         for _, u in all_users.iterrows():
-            u_id, u_name, u_cash = u['student_id'], u['name'], float(u['cash'])
+            u_id, u_name = u['student_id'], u['name']
+            u_cash = float(u['cash'])
+            u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
+            
             u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
             u_stock_eval = 0
             if not u_port.empty:
@@ -155,12 +163,14 @@ def render_admin_dashboard():
                     u_stock_eval += p * int(row['quantity'])
                 
             u_total_assets = u_cash + u_stock_eval
-            u_return = ((u_total_assets - 10000000) / 10000000) * 100
+            
+            # 개별 학생의 초기 시드머니(u_init_cash) 기준으로 수익률 계산
+            u_return = ((u_total_assets - u_init_cash) / u_init_cash) * 100
             
             admin_leaderboard.append({
                 "학번": u_id,
                 "이름": u_name,
-                "보유 예수금 (원)": f"{round(u_cash):,}",
+                "보유 예수금 (원)": round(u_cash),
                 "총 자산 (원)": round(u_total_assets),
                 "수익률 (%)": round(u_return, 2)
             })
@@ -168,10 +178,30 @@ def render_admin_dashboard():
         if admin_leaderboard:
             df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by="총 자산 (원)", ascending=False).reset_index(drop=True)
             df_admin_lb.index += 1
-            df_display = df_admin_lb.copy()
-            df_display["총 자산 (원)"] = df_display["총 자산 (원)"].apply(lambda x: f"{x:,}")
-            st.dataframe(df_display, width="stretch")
 
+            # st.column_config를 사용하여 숫자 항목 우측 정렬 및 천단위 쉼표 포맷팅 적용
+            st.dataframe(
+                df_admin_lb, 
+                use_container_width=True,
+                column_config={
+                    "학번": st.column_config.TextColumn("학번"),
+                    "이름": st.column_config.TextColumn("이름"),
+                    "보유 예수금 (원)": st.column_config.NumberColumn(
+                        "보유 예수금 (원)",
+                        format="%,d"  # 천단위 쉼표 + 우측 정렬
+                    ),
+                    "총 자산 (원)": st.column_config.NumberColumn(
+                        "총 자산 (원)",
+                        format="%,d"  # 천단위 쉼표 + 우측 정렬
+                    ),
+                    "수익률 (%)": st.column_config.NumberColumn(
+                        "수익률 (%)",
+                        format="%.2f%%"  # 소수점 2자리 % + 우측 정렬
+                    )
+                }
+            )
+
+            # CSV 다운로드용 데이터
             csv_data = df_admin_lb.to_csv(index=True, encoding="utf-8-sig")
             st.download_button(
                 label="📥 랭킹 데이터 CSV 다운로드",
