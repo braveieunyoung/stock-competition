@@ -286,7 +286,7 @@ def render_admin_dashboard():
         st.divider()
         st.subheader("➕ 개별 신규 학생 등록")
         
-        # 1. 개별 등록 폼
+        # 1. 폼 UI 정의 (clear_on_submit=True 유지)
         with st.form("register_student_form", clear_on_submit=True):
             col_reg1, col_reg2 = st.columns(2)
             with col_reg1:
@@ -298,7 +298,7 @@ def render_admin_dashboard():
                 
             submit_reg = st.form_submit_button("개별 학생 등록", type="primary")
         
-        # 2. 개별 등록 처리
+        # 2. 폼 바깥에서 처리 로직 실행 (들여쓰기 제거!)
         if submit_reg:
             s_id_clean = new_s_id.strip() if new_s_id else ""
             s_name_clean = new_s_name.strip() if new_s_name else ""
@@ -336,7 +336,6 @@ def render_admin_dashboard():
                 except Exception as e:
                     st.error(f"등록 중 오류가 발생했습니다: {e}")
         
-        # 3. ⬇️ 누락된 명단 출력 부분 (이 부분을 꼭 넣어주셔야 화면에 나타납니다!) ⬇️
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
         
