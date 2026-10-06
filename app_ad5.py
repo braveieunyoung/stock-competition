@@ -296,55 +296,43 @@ def render_admin_dashboard():
         st.divider()
         st.subheader("➕ 개별 신규 학생 등록")
         
-        # 1. 폼 UI 정의 (clear_on_submit=True 유지)
-        with st.form("register_student_form", clear_on_submit=True):
-            col_reg1, col_reg2 = st.columns(2)
-            with col_reg1:
-                new_s_id = st.text_input("신규 학번", max_chars=10)
-                new_s_name = st.text_input("신규 학생 이름")
-            with col_reg2:
-                new_s_pw = st.text_input("초기 비밀번호 (선택사항, 비워두면 학생이 설정)", type="password")
-                new_s_cash = st.number_input("초기 시드머니(원)", value=10000000, step=1000000)
-                
-            submit_reg = st.form_submit_button("개별 학생 등록", type="primary")
-        
-        # 2. 폼 바깥에서 처리 로직 실행 (들여쓰기 제거!)
-        if submit_reg:
-            s_id_clean = new_s_id.strip() if new_s_id else ""
-            s_name_clean = new_s_name.strip() if new_s_name else ""
-            s_pw_clean = new_s_pw.strip() if new_s_pw else ""
-        
-            if not s_id_clean or not s_name_clean:
-                st.warning("⚠️ 신규 학번과 학생 이름을 모두 입력해 주세요.")
-            else:
-                try:
-                    with engine.begin() as conn:
-                        res = conn.execute(
-                            text("SELECT student_id FROM users WHERE student_id = :s_id"), 
-                            {"s_id": s_id_clean}
-                        ).fetchone()
-        
-                        if res:
-                            st.error("이미 존재하는 학번입니다.")
-                        else:
-                            is_reg_int = 1 if s_pw_clean else 0
-                            conn.execute(
-                                text("""
-                                    INSERT INTO users (student_id, name, cash, password, is_registered) 
-                                    VALUES (:s_id, :name, :cash, :pw, :is_reg)
-                                """),
-                                {
-                                    "s_id": s_id_clean, 
-                                    "name": s_name_clean, 
-                                    "cash": float(new_s_cash), 
-                                    "pw": s_pw_clean, 
-                                    "is_reg": is_reg_int
-                                }
-                            )
-                            st.success(f"🎉 {s_id_clean} {s_name_clean} 학생이 성공적으로 등록되었습니다.")
-                            st.rerun()
-                except Exception as e:
-                    st.error(f"등록 중 오류가 발생했습니다: {e}")
+        with st.form("single_student_form"):
+            new_student_id = st.text_input("학번 (예: 10101)").strip()
+            new_name = st.text_input("이름").strip()
+            submitted = st.form_submit_button("학생 추가")
+
+            if submitted:
+                if not new_student_id or not new_name:
+                    st.error("학번과 이름을 모두 입력해주세요.")
+                else:
+                    try:
+                        # engine.begin()을 써야 DB에 바로 저장(commit)됩니다.
+                        with engine.begin() as db:
+                            # 중복 학번 확인
+                            check_user = db.execute(
+                                text(
+                                    "SELECT * FROM users WHERE student_id = :sid"
+                                ),
+                                {"sid": new_student_id},
+                            ).fetchone()
+
+                            if check_user:
+                                st.error("이미 존재하는 학번입니다.")
+                            else:
+                                # users 테이블에 추가 (기본 예수금 10,000,000원 설정)
+                                db.execute(
+                                    text(
+                                        "INSERT INTO users (student_id, name, cash, is_registered) VALUES (:sid, :name, 10000000.0, FALSE)"
+                                    ),
+                                    {"sid": new_student_id, "name": new_name},
+                                )
+
+                                st.success(
+                                    f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!"
+                                )
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"등록 중 오류가 발생했습니다: {e}")
         
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
