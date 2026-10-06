@@ -306,7 +306,6 @@ def render_admin_dashboard():
                     st.error("학번과 이름을 모두 입력해주세요.")
                 else:
                     try:
-                        # engine.begin()을 써야 DB에 바로 저장(commit)됩니다.
                         with engine.begin() as db:
                             # 중복 학번 확인
                             check_user = db.execute(
@@ -319,12 +318,20 @@ def render_admin_dashboard():
                             if check_user:
                                 st.error("이미 존재하는 학번입니다.")
                             else:
-                                # users 테이블에 추가 (기본 예수금 10,000,000원 설정)
+                                # 1. users 테이블에 학생 정보 추가 (cash 컬럼 제거)
                                 db.execute(
                                     text(
-                                        "INSERT INTO users (student_id, name, cash, is_registered) VALUES (:sid, :name, 10000000.0, FALSE)"
+                                        "INSERT INTO users (student_id, name, is_registered) VALUES (:sid, :name, FALSE)"
                                     ),
                                     {"sid": new_student_id, "name": new_name},
+                                )
+
+                                # 2. portfolios 테이블에 초기 시드머니(1,000만원) 생성
+                                db.execute(
+                                    text(
+                                        "INSERT INTO portfolios (student_id, cash_balance) VALUES (:sid, 10000000.0)"
+                                    ),
+                                    {"sid": new_student_id},
                                 )
 
                                 st.success(
