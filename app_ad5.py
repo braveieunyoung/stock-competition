@@ -368,7 +368,7 @@ if st.session_state.get('user') is None:
         s_pw = password.strip()
 
         if s_id.lower() == "admin":
-            with engine.ect() as :
+            with engine.connect() as conn:
                 res = .execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
                 admin_pw = res[0] if res else ""
 
@@ -382,7 +382,7 @@ if st.session_state.get('user') is None:
             if not s_id or not s_name or not s_pw:
                 st.warning("학번, 이름, 비밀번호를 모두 입력해 주세요.")
             else:
-                with engine.ect() as :
+                with engine.connect() as conn:
                     user_row = .execute(
                         text("SELECT name, password, is_registered FROM users WHERE student_id = :s_id"),
                         {"s_id": s_id}
