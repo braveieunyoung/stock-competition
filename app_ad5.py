@@ -304,15 +304,17 @@ def render_admin_dashboard():
                                 st.error("이미 존재하는 학번입니다.")
                             else:
                                 # 2. 신규 학생 INSERT (cash 값을 float으로 명시적 전달)
+                                # 신규 학생 등록 시 init_cash도 함께 저장
                                 conn.execute(
                                     text("""
-                                        INSERT INTO users (student_id, name, cash, password, is_registered) 
-                                        VALUES (:s_id, :name, :cash, :pw, :is_reg)
+                                        INSERT INTO users (student_id, name, cash, init_cash, password, is_registered) 
+                                        VALUES (:s_id, :name, :cash, :init_cash, :pw, :is_reg)
                                     """),
                                     {
                                         "s_id": new_student_id, 
                                         "name": new_name, 
                                         "cash": float(new_cash_input), 
+                                        "init_cash": float(new_cash_input), # 초기 시드머니 저장
                                         "pw": new_pw, 
                                         "is_reg": is_reg
                                     }
@@ -330,12 +332,42 @@ def render_admin_dashboard():
         st.divider()
         st.subheader("👥 등록된 학생 명단 및 회원 관리")
         
-        all_users_df = pd.read_sql(text("SELECT student_id AS 학번, name AS 이름, cash AS 시드머니, is_registered AS 가입여부 FROM users WHERE student_id != 'admin' ORDER BY student_id ASC"), engine)
+        all_users = pd.read_sql(
+            text("SELECT student_id, name, cash, is_registered FROM users WHERE student_id != 'admin' ORDER BY student_id ASC"), 
+            engine
+        )
         
-        if not all_users_df.empty:
-            all_users_df['시드머니'] = all_users_df['시드머니'].apply(lambda x: f"{int(x):,} 원")
-            all_users_df['가입여부'] = all_users_df['가입여부'].apply(lambda x: "등록 완료" if str(x) == "1" else "미등록(최초로그인 대기)")
-            st.dataframe(all_users_df, use_container_width=True, hide_index=True)
+        if not all_users.empty:
+            user_list = []
+            for _, row in all_users.iterrows():
+                s_id = row['student_id']
+                s_name = row['name']
+                s_cash = float(row['cash'])
+                is_reg = "등록 완료" if str(row['is_registered']) == "1" else "미등록(최초로그인 대기)"
+                
+                # 학생별 보유 주식 평가금액 계산
+                u_port = pd.read_sql(
+                    text("SELECT symbol, quantity FROM portfolio WHERE student_id = :s_id"), 
+                    engine, 
+                    params={"s_id": s_id}
+                )
+                stock_eval = 0.0
+                if not u_port.empty:
+                    for _, p_row in u_port.iterrows():
+                        stock_eval += get_current_price(p_row['symbol']) * int(p_row['quantity'])
+                
+                total_assets = s_cash + stock_eval
+                
+                user_list.append({
+                    "학번": s_id,
+                    "이름": s_name,
+                    "예수금 (원)": f"{int(round(s_cash)):,} 원",
+                    "총자산 (원)": f"{int(round(total_assets)):,} 원",
+                    "가입여부": is_reg
+                })
+            
+            df_manage = pd.DataFrame(user_list)
+            st.dataframe(df_manage, use_container_width=True, hide_index=True)
         else:
             st.info("등록된 학생이 없습니다.")
 
