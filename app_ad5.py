@@ -295,11 +295,8 @@ def render_admin_dashboard():
                                 st.error("이미 존재하는 학번입니다.")
                             else:
                                 # users 테이블에 기본 시드머니(10,000,000원)와 함께 신규 등록
-                                 conn.execute(
-                                    text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"),
-                                    {"s_id": s_id, "name": s_name, "cash": s_cash, "pw": s_pw, "is_reg": is_reg}
-                                )
-                                                       
+                                conn.execute(text("INSERT INTO users (student_id, name, cash, password, is_registered) VALUES (:s_id, :name, :cash, :pw, :is_reg)"), {"s_id": s_id, "name": s_name, "cash": s_cash, "pw": s_pw, "is_reg": is_reg})
+                                 
                                 added_count += 1
 
                                 st.success(f"학생 {new_name}({new_student_id})이 성공적으로 등록되었습니다!")
