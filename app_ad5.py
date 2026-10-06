@@ -225,18 +225,23 @@ def render_admin_dashboard():
                 selected_label = st.selectbox("학생 선택", list(student_options.keys()))
                 target_id = student_options[selected_label]
                 
-                curr_cash = all_students[all_students['student_id'] == target_id]['cash'].values[0]
+                curr_cash = float(all_students[all_students['student_id'] == target_id]['cash'].values[0])
                 st.caption(f"현재 예수금: **{int(curr_cash):,} 원**")
-
-                new_cash_val = st.number_input("추가할 예수금(원)", min_value=0, step=100000, value=int(curr_cash))
-           
+        
+                # 추가할 금액만 입력받도록 value=0 설정
+                add_cash = st.number_input("추가할 예수금 (원)", min_value=0, step=100000, value=0)
+                
+                # 최종 반영될 금액 계산
+                final_cash = int(curr_cash + add_cash)
+                st.caption(f"수정 후 예상 예수금: **{final_cash:,} 원**")
+        
                 if st.button("개별 금액 설정 완료", type="primary"):
                     with engine.begin() as conn:
                         conn.execute(
                             text("UPDATE users SET cash = :cash WHERE student_id = :student_id"),
-                            {"cash": new_cash_val, "student_id": target_id}
+                            {"cash": final_cash, "student_id": target_id}
                         )
-                    st.success("예수금이 수정되었습니다.")
+                    st.success(f"예수금이 수정되었습니다. (최종 예수금: {final_cash:,}원)")
                     st.rerun()
 
         with col_m2:
