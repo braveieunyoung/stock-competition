@@ -836,7 +836,7 @@ else:
             st.divider()
 
             # --- 보유 종목 목록 및 즉시 매도 영역 ---
-            st.markdown("### 📋 보유 종목 목록 및 빠른 매도")
+            st.markdown("### 📋 보유 종목")
 
             if not portfolio_df.empty:
                 for idx, row in portfolio_df.iterrows():
