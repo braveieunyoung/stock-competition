@@ -164,6 +164,65 @@ def get_stock_history(symbol):
     return pd.DataFrame()
 
 
+def analyze_stock_indicators(df):
+    """주가 과거 데이터를 바탕으로 MA 교차, RSI, 볼린저밴드 지표를 계산해 투자 팁을 생성하는 함수"""
+    if len(df) < 20:
+        return None
+
+    df_calc = df.copy()
+
+    # 1. 이동평균선 계산 (5일, 20일)
+    df_calc['MA5'] = df_calc['Close'].rolling(window=5).mean()
+    df_calc['MA20'] = df_calc['Close'].rolling(window=20).mean()
+
+    # 2. RSI (상대강도지수, 14일 기준) 계산
+    delta = df_calc['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df_calc['RSI'] = 100 - (100 / (1 + rs))
+
+    # 3. 볼린저 밴드 계산 (20일 이동평균, 표준편차 2배수)
+    df_calc['BB_Middle'] = df_calc['MA20']
+    std = df_calc['Close'].rolling(window=20).std()
+    df_calc['BB_Upper'] = df_calc['BB_Middle'] + (std * 2)
+    df_calc['BB_Lower'] = df_calc['BB_Middle'] - (std * 2)
+
+    latest = df_calc.iloc[-1]
+    prev = df_calc.iloc[-2]
+
+    tips = []
+
+    # [분석 1] 이동평균선 교차
+    if prev['MA5'] < prev['MA20'] and latest['MA5'] >= latest['MA20']:
+        tips.append(("success", "📈 **골든크로스 발생 (매수 신호)**: 5일 이동평균선이 20일선을 위로 돌파했습니다. 단기 상승 전환 가능성이 높습니다."))
+    elif prev['MA5'] > prev['MA20'] and latest['MA5'] <= latest['MA20']:
+        tips.append(("warning", "📉 **데드크로스 발생 (매도 주의)**: 5일 이동평균선이 20일선 아래로 돌파했습니다. 단기 조정/하락 가능성에 주의하세요."))
+
+    # [분석 2] RSI (상대강도지수)
+    rsi_val = latest['RSI']
+    if pd.notna(rsi_val):
+        if rsi_val <= 30:
+            tips.append(("info", f"🔵 **RSI 과매도 구간 ({rsi_val:.1f})**: 주가가 과도하게 하락한 상태입니다. 단기 반등(저점 매수 기회)을 기대할 수 있습니다."))
+        elif rsi_val >= 70:
+            tips.append(("warning", f"🔴 **RSI 과매수 구간 ({rsi_val:.1f})**: 단기 급등으로 주가가 과열된 상태입니다. 차익 실현 및 조정을 고려하세요."))
+        else:
+            tips.append(("secondary", f"⚪ **RSI 중립 구간 ({rsi_val:.1f})**: 현재 주가는 과열이나 과매도 없이 안정적인 추세를 유지하고 있습니다."))
+
+    # [분석 3] 볼린저 밴드
+    close_val = latest['Close']
+    upper_val = latest['BB_Upper']
+    lower_val = latest['BB_Lower']
+    
+    if pd.notna(upper_val) and pd.notna(lower_val):
+        if close_val >= upper_val:
+            tips.append(("warning", "⚠️ **볼린저 밴드 상단 터치**: 주가가 상한 변동 폭의 최상단에 도달했습니다. 단기 저항을 받을 수 있습니다."))
+        elif close_val <= lower_val:
+            tips.append(("info", "💡 **볼린저 밴드 하단 터치**: 주가가 하한 변동 폭의 최하단에 도달했습니다. 기술적 반등 가능성이 있습니다."))
+
+    return tips
+
+
 # ---------------------------------------------------------
 # 2. 페이지 기본 설정 및 Custom CSS 적용
 # ---------------------------------------------------------
@@ -192,7 +251,7 @@ if "user" not in st.session_state:
 # ---------------------------------------------------------
 def render_admin_dashboard():
     """관리자(admin) 계정으로 접속 시 표시되는 관리자 전용 화면"""
-    st.title("⚙️️ 관리자 전용 대시보드")
+    st.title("⚙ 관리자 전용 대시보드")
     st.info("관리자로 로그인되었습니다. 학생 명단 관리 및 초기 설정을 진행할 수 있습니다.")
 
     # 관리자 기능 탭 3개 생성
@@ -658,7 +717,7 @@ else:
 
             left_col, right_col = st.columns([1.3, 1])
 
-            # 좌측: 주가 차트 출력 (캔들 차트 / 선 차트)
+            # 좌측: 주가 차트 및 AI 투자 팁 출력
             with left_col:
                 st.caption(f"**{selected_stock_name}** 최근 3개월 차트")
                 df_hist = get_stock_history(symbol)
@@ -680,6 +739,23 @@ else:
                         fig_line = px.line(df_hist, x='Date', y='Close')
                         fig_line.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
                         st.plotly_chart(fig_line, width="stretch")
+
+                    # 💡 AI 데이터 분석 기반 투자 팁 출력 영역
+                    st.markdown("#### 💡 AI 데이터 분석 및 투자 팁")
+                    analysis_tips = analyze_stock_indicators(df_hist)
+
+                    if analysis_tips:
+                        for tip_type, msg in analysis_tips:
+                            if tip_type == "success":
+                                st.success(msg)
+                            elif tip_type == "warning":
+                                st.warning(msg)
+                            elif tip_type == "info":
+                                st.info(msg)
+                            else:
+                                st.caption(msg)
+                    else:
+                        st.caption("분석을 위한 데이터가 부족합니다.")
                 else:
                     st.info("차트 데이터를 불러올 수 없습니다.")
 
