@@ -222,6 +222,39 @@ def analyze_stock_indicators(df):
 
     return tips
 
+    # [분석 4] 종합 판단 로직 추가
+    signal_score = 0  # 매수(+)/매도(-) 기여도 점수
+
+    # 1) 이동평균선 점수
+    if prev['MA5'] < prev['MA20'] and latest['MA5'] >= latest['MA20']:
+        signal_score += 1
+    elif prev['MA5'] > prev['MA20'] and latest['MA5'] <= latest['MA20']:
+        signal_score -= 1
+
+    # 2) RSI 점수
+    if pd.notna(rsi_val):
+        if rsi_val <= 30:
+            signal_score += 1
+        elif rsi_val >= 70:
+            signal_score -= 1
+
+    # 3) 볼린저 밴드 점수
+    if pd.notna(upper_val) and pd.notna(lower_val):
+        if close_val <= lower_val:
+            signal_score += 1
+        elif close_val >= upper_val:
+            signal_score -= 1
+
+    # 종합 의견 메시지 추가 (리스트 맨 앞에 넣거나 마지막에 추가)
+    if signal_score >= 1:
+        tips.append(("success", "🎯 **종합 판단**: 상승 전환 가능성이 높거나 저점 매수 기회로 해석되는 구간입니다."))
+    elif signal_score <= -1:
+        tips.append(("warning", "🎯 **종합 판단**: 하락 추세 또는 과열 위험이 존재하므로 관망 및 신중한 매수를 권장합니다."))
+    else:
+        tips.append(("secondary", "🎯 **종합 판단**: 지표별 신호가 상충하거나 중립입니다. 명확한 방향성이 나타날 때까지 관망하세요."))
+
+    return tips
+
 
 # ---------------------------------------------------------
 # 2. 페이지 기본 설정 및 Custom CSS 적용
@@ -740,10 +773,10 @@ else:
                         fig_line.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
                         st.plotly_chart(fig_line, width="stretch")
 
-                    # 💡 AI 데이터 분석 기반 투자 팁 출력 영역
+                   # 💡 AI 데이터 분석 기반 투자 팁 출력 영역
                     st.markdown("#### 💡 AI 데이터 분석 및 투자 팁")
                     analysis_tips = analyze_stock_indicators(df_hist)
-
+                    
                     if analysis_tips:
                         for tip_type, msg in analysis_tips:
                             if tip_type == "success":
@@ -753,7 +786,7 @@ else:
                             elif tip_type == "info":
                                 st.info(msg)
                             else:
-                                st.caption(msg)
+                                st.caption(msg)  # secondary(중립/종합안내)의 경우 회색 캡션 텍스트로 출력
                     else:
                         st.caption("분석을 위한 데이터가 부족합니다.")
                 else:
