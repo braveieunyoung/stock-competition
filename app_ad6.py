@@ -852,7 +852,7 @@ else:
                     total_buy_price = current_price * buy_qty
                     st.markdown(f"총 매수 금액: **:red[{total_buy_price:,.0f} 원]**")
 
-                    if st.button("📉 매수 완료", key="btn_do_buy", type="primary", width="stretch"):
+                    if st.button("📉 매수 실행", key="btn_do_buy", type="secondary", width="stretch"):
                         if current_price <= 0:
                             st.error("현재가를 불러올 수 없습니다.")
                         elif cash >= total_buy_price:
@@ -930,7 +930,7 @@ else:
                             est_sell_amount = p_curr_price * sell_port_qty
                             st.caption(f"예상 매도금액: **{int(round(est_sell_amount)):,} 원**")
 
-                            if st.button("📈 매도 실행", key=f"btn_sell_port_{p_symbol}", type="primary", use_container_width=True):
+                            if st.button("📈 매도 실행", key=f"btn_sell_port_{p_symbol}", type="secondary", use_container_width=True):
                                 if p_qty >= sell_port_qty > 0:
                                     new_cash = cash + est_sell_amount
                                     with engine.begin() as conn:
