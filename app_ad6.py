@@ -864,7 +864,7 @@ else:
                     total_buy_price = current_price * buy_qty
                     st.markdown(f"총 매수 금액: **:red[{total_buy_price:,.0f} 원]**")
 
-                    if st.button("📉 매수 실행", key="btn_do_buy", type="secondary", width="stretch"):
+                    if st.button("📉 매수 완료", key="btn_do_buy", type="secondary", width="stretch"):
                         if current_price <= 0:
                             st.error("현재가를 불러올 수 없습니다.")
                         elif cash >= total_buy_price:
