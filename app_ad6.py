@@ -189,28 +189,29 @@ def analyze_stock_indicators(df):
     df_calc['BB_Lower'] = df_calc['BB_Middle'] - (std * 2)
 
     latest = df_calc.iloc[-1]
-    prev = df_calc.iloc[-2]
 
     tips = []
-    signal_score = 0
+    signal_score = 0      # 매수(+)/매도(-) 점수
 
-    # [분석 1] 이동평균선 교차
+    # [분석 1] 이동평균선 추세
     if latest['MA5'] >= latest['MA20']:
-        tips.append(("success", "📈 **상승 추세 (정배열)**: 5일 이동평균선이 20일선 위에 위치하여 상승 흐름을 유지하고 있습니다."))
+        tips.append(("success", "**이동평균선(상승 추세)**: 5일선이 20일선 위에 위치하여 단기 상승 흐름을 유지하고 있습니다."))
         signal_score += 1
     else:
-        tips.append(("warning", "📉 **하락 추세 (역배열)**: 5일 이동평균선이 20일선 아래에 위치하여 조정/하락 흐름에 있습니다."))
+        tips.append(("warning", "**이동평균선(하락 추세)**: 5일선이 20일선 아래에 위치하여 단기 조정/하락 흐름에 있습니다."))
         signal_score -= 1
 
     # [분석 2] RSI (상대강도지수)
     rsi_val = latest['RSI']
     if pd.notna(rsi_val):
         if rsi_val <= 30:
-            tips.append(("info", f"🔵 **RSI 과매도 구간 ({rsi_val:.1f})**: 주가가 과도하게 하락한 상태입니다. 단기 반등(저점 매수 기회)을 기대할 수 있습니다."))
+            tips.append(("info", f"**RSI 과매도 ({rsi_val:.1f})**: 주가가 과도하게 하락하여 단기 반등(저점 매수 기회)을 기대해볼 수 있습니다."))
+            signal_score += 1
         elif rsi_val >= 70:
-            tips.append(("warning", f"🔴 **RSI 과매수 구간 ({rsi_val:.1f})**: 단기 급등으로 주가가 과열된 상태입니다. 차익 실현 및 조정을 고려하세요."))
+            tips.append(("warning", f"**RSI 과매수 ({rsi_val:.1f})**: 단기 급등으로 주가가 과열되어 차익 실현 및 조정 가능성이 있습니다."))
+            signal_score -= 1
         else:
-            tips.append(("secondary", f"⚪ **RSI 중립 구간 ({rsi_val:.1f})**: 현재 주가는 과열이나 과매도 없이 안정적인 추세를 유지하고 있습니다."))
+            tips.append(("secondary", f"**RSI 중립 ({rsi_val:.1f})**: 과열이나 과매도 없이 안정적인 세를 유지하고 있습니다."))
 
     # [분석 3] 볼린저 밴드
     close_val = latest['Close']
@@ -218,44 +219,21 @@ def analyze_stock_indicators(df):
     lower_val = latest['BB_Lower']
     
     if close_val >= upper_val:
-        tips.append(("warning", "⚠️ **볼린저 밴드 상단 터치**: 주가가 변동 폭 최상단에 도달했습니다."))
+        tips.append(("warning", "**볼린저 밴드**: 주가가 상한 변동 폭 최상단에 도달하여 단기 저항을 받을 수 있습니다."))
         signal_score -= 1
     elif close_val <= lower_val:
-        tips.append(("info", "💡 **볼린저 밴드 하단 터치**: 주가가 변동 폭 최하단에 도달했습니다."))
+        tips.append(("info", "**볼린저 밴드**: 주가가 하한 변동 폭 최하단에 도달하여 기술적 반등 가능성이 있습니다."))
         signal_score += 1
     else:
-        tips.append(("secondary", "↔️ **볼린저 밴드 안쪽**: 주가가 정상 변동성 범위 내부에서 움직이고 있습니다."))
+        tips.append(("secondary", "**볼린저 밴드**: 주가가 정상 변동 범위 내부에서 움직이고 있습니다."))
 
-    # [분석 4] 종합 판단 로직 추가
-    signal_score = 0  # 매수(+)/매도(-) 기여도 점수
-
-    # 1) 이동평균선 점수
-    if prev['MA5'] < prev['MA20'] and latest['MA5'] >= latest['MA20']:
-        signal_score += 1
-    elif prev['MA5'] > prev['MA20'] and latest['MA5'] <= latest['MA20']:
-        signal_score -= 1
-
-    # 2) RSI 점수
-    if pd.notna(rsi_val):
-        if rsi_val <= 30:
-            signal_score += 1
-        elif rsi_val >= 70:
-            signal_score -= 1
-
-    # 3) 볼린저 밴드 점수
-    if pd.notna(upper_val) and pd.notna(lower_val):
-        if close_val <= lower_val:
-            signal_score += 1
-        elif close_val >= upper_val:
-            signal_score -= 1
-
-    # 종합 의견 메시지 추가 (리스트 맨 앞에 넣거나 마지막에 추가)
+    # [분석 4] 종합 판단
     if signal_score >= 1:
-        tips.append(("success", "📊 **종합 판단**: 상승 전환 가능성이 높거나 저점 매수 기회로 해석되는 구간입니다."))
+        tips.append(("success", "**종합 판단**: 상승 전환 가능성이 높거나 저점 매수 기회로 해석되는 구간입니다."))
     elif signal_score <= -1:
-        tips.append(("warning", "📊 **종합 판단**: 하락 추세 또는 과열 위험이 존재하므로 관망 및 신중한 매수를 권장합니다."))
+        tips.append(("warning", "**종합 판단**: 하락 추세 또는 과열 위험이 존재하므로 관망 및 신중한 매수를 권장합니다."))
     else:
-        tips.append(("secondary", "📊 **종합 판단**: 지표별 신호가 상충하거나 중립입니다. 명확한 방향성이 나타날 때까지 관망하세요."))
+        tips.append(("secondary", "**종합 판단**: 지표별 신호가 상충하거나 중립 상태이므로 명확한 방향성이 나올 때까지 관망하세요."))
 
     return tips
 
