@@ -935,7 +935,7 @@ else:
                             st.markdown(f"수익률: :{return_color}[**{'+' if p_return > 0 else ''}{p_return:.2f}%**]")
 
                         with c_sell:
-                            st.markdown("**⚡매도 **")
+                            st.markdown("**⚡매도**")
                             sell_port_key = f"sell_port_qty_{p_symbol}"
                             
                             sell_port_qty = st.number_input(
