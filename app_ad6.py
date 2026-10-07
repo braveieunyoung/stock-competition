@@ -862,7 +862,7 @@ else:
 
             with right_col:
                 with st.container(border=True):
-                    st.markdown("**⚡ 주식 매수 주문**")
+                    st.markdown("**⚡매수 주문**")
                     st.caption(f"최대 매수 가능: **{max_buy_qty:,}** 주")
                     if st.button("최대 수량 채우기 (매수)", key="btn_max_buy", width="stretch"):
                         st.session_state[buy_key] = max(1, max_buy_qty)
@@ -935,7 +935,7 @@ else:
                             st.markdown(f"수익률: :{return_color}[**{'+' if p_return > 0 else ''}{p_return:.2f}%**]")
 
                         with c_sell:
-                            st.markdown("**⚡매도**")
+                            st.markdown("**⚡매도 주문**")
                             sell_port_key = f"sell_port_qty_{p_symbol}"
                             
                             sell_port_qty = st.number_input(
