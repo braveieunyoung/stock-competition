@@ -643,15 +643,15 @@ def render_admin_dashboard():
 # 4. 로그인 및 인증 로직 (라우팅)
 # ---------------------------------------------------------
 if st.session_state.get('user') is None:
-    st.title("📈 학생 모의주식 투자 대회")
-    st.subheader("로그인하여 가상 투자에 참여하세요!")
+    st.title("📈 모의 주식 투자")
+    st.subheader("로그인하여 주식 투자에 참여하세요!")
 
     col1, col2 = st.columns(2)
     with col1:
-        student_id = st.text_input("학번 (관리자: admin)", max_chars=10)
-        name = st.text_input("이름 (관리자인 경우 생략 가능)")
+        student_id = st.text_input("학번", max_chars=10)
+        name = st.text_input("이름")
         password = st.text_input("비밀번호", type="password")
-        login_button = st.button("로그인 / 접속하기", type="primary")
+        login_button = st.button("로그인", type="primary")
 
     if login_button:
         s_id = student_id.strip()
