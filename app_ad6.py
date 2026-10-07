@@ -273,110 +273,110 @@ def render_admin_dashboard():
     tab1, tab2, tab3 = st.tabs(["📊 전체 랭킹 및 데이터", "💰 시드 머니 관리", "👥 학생 명단 & CSV 업로드"])
 
     # TAB 1: 랭킹 및 데이터 다운로드 + 개별 학생 포트폴리오 상세 조회
-        with tab1:
-            st.subheader("🏆 전체 참가자 실시간 데이터")
-            if st.button("🔄 랭킹 새로고침", key="admin_rank_refresh"):
-                st.rerun()
+    with tab1:
+        st.subheader("🏆 전체 참가자 실시간 데이터")
+        if st.button("🔄 랭킹 새로고침", key="admin_rank_refresh"):
+            st.rerun()
+        
+        all_users = pd.read_sql(
+            text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
+            engine
+        )
+        
+        admin_leaderboard = []
+        for _, u in all_users.iterrows():
+            u_id, u_name = u['student_id'], u['name']
+            u_cash = float(u['cash'])
+            u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
             
-            all_users = pd.read_sql(
-                text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
-                engine
+            u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
+            u_stock_eval = 0
+            if not u_port.empty:
+                for _, row in u_port.iterrows():
+                    p = get_current_price(row['symbol'])
+                    u_stock_eval += p * int(row['quantity'])
+                
+            u_total_assets = u_cash + u_stock_eval
+            u_return = ((u_total_assets - u_init_cash) / u_init_cash) * 100
+            
+            admin_leaderboard.append({
+                "학번": u_id,
+                "이름": u_name,
+                "보유 예수금 (원)": round(u_cash),
+                "총 자산 (원)": round(u_total_assets),
+                "수익률 (%)": round(u_return, 2)
+            })
+
+        if admin_leaderboard:
+            df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by=["수익률 (%)","총 자산 (원)"], ascending=False).reset_index(drop=True)
+            df_admin_lb.index += 1
+
+            st.dataframe(
+                df_admin_lb, 
+                use_container_width=True,
+                column_config={
+                    "학번": st.column_config.TextColumn("학번"),
+                    "이름": st.column_config.TextColumn("이름"),
+                    "보유 예수금 (원)": st.column_config.NumberColumn("보유 예수금 (원)", format="%,d"),
+                    "총 자산 (원)": st.column_config.NumberColumn("총 자산 (원)", format="%,d"),
+                    "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
+                }
             )
+
+            # CSV 다운로드 버튼 (BOM 포함 바이트 스트림 적용으로 엑셀 한글 깨짐 방지)
+            csv_bytes = df_admin_lb.to_csv(index=True, encoding="utf-8-sig").encode("utf-8-sig")
+            st.download_button(
+                label="📥 랭킹 데이터 CSV 다운로드",
+                data=csv_bytes,
+                file_name=f"student_ranks_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+            )
+
+            st.divider()
+
+            # --- 🔍 학생별 투자 종목 리스트 상세 조회 영역 ---
+            st.subheader("🔍 개별 학생 투자 포트폴리오 상세 조회")
             
-            admin_leaderboard = []
-            for _, u in all_users.iterrows():
-                u_id, u_name = u['student_id'], u['name']
-                u_cash = float(u['cash'])
-                u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
-                
-                u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
-                u_stock_eval = 0
-                if not u_port.empty:
-                    for _, row in u_port.iterrows():
-                        p = get_current_price(row['symbol'])
-                        u_stock_eval += p * int(row['quantity'])
-                    
-                u_total_assets = u_cash + u_stock_eval
-                u_return = ((u_total_assets - u_init_cash) / u_init_cash) * 100
-                
-                admin_leaderboard.append({
-                    "학번": u_id,
-                    "이름": u_name,
-                    "보유 예수금 (원)": round(u_cash),
-                    "총 자산 (원)": round(u_total_assets),
-                    "수익률 (%)": round(u_return, 2)
-                })
-    
-            if admin_leaderboard:
-                df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by=["수익률 (%)","총 자산 (원)"], ascending=False).reset_index(drop=True)
-                df_admin_lb.index += 1
-    
+            # 드롭다운 옵션 생성 (예: "10101 (김철수)")
+            student_list_opts = {f"{row['학번']} ({row['이름']})": row['학번'] for _, row in df_admin_lb.iterrows()}
+            selected_student_label = st.selectbox("포트폴리오를 조회할 학생 선택", list(student_list_opts.keys()))
+            selected_student_id = student_list_opts[selected_student_label]
+
+            # 선택한 학생의 포트폴리오 정보 불러오기
+            selected_port = pd.read_sql(
+                text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"),
+                engine,
+                params={"s_id": selected_student_id}
+            )
+
+            if not selected_port.empty:
+                selected_port['현재가'] = selected_port['symbol'].apply(get_current_price)
+                selected_port['평가금액'] = selected_port['quantity'] * selected_port['현재가']
+                selected_port['평가손익'] = selected_port['평가금액'] - (selected_port['quantity'] * selected_port['buy_price'])
+                selected_port['수익률(%)'] = (selected_port['평가손익'] / (selected_port['quantity'] * selected_port['buy_price'])) * 100
+
+                # 보기 좋게 가공
+                display_port = selected_port[['stock_name', 'symbol', 'quantity', 'buy_price', '현재가', '평가금액', '평가손익', '수익률(%)']].copy()
+                display_port.columns = ['종목명', '종목코드', '보유수량', '평균매수가', '현재가', '평가금액', '평가손익', '수익률(%)']
+
                 st.dataframe(
-                    df_admin_lb, 
+                    display_port,
                     use_container_width=True,
+                    hide_index=True,
                     column_config={
-                        "학번": st.column_config.TextColumn("학번"),
-                        "이름": st.column_config.TextColumn("이름"),
-                        "보유 예수금 (원)": st.column_config.NumberColumn("보유 예수금 (원)", format="%,d"),
-                        "총 자산 (원)": st.column_config.NumberColumn("총 자산 (원)", format="%,d"),
-                        "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
+                        "보유수량": st.column_config.NumberColumn(format="%,d 주"),
+                        "평균매수가": st.column_config.NumberColumn(format="%,d 원"),
+                        "현재가": st.column_config.NumberColumn(format="%,d 원"),
+                        "평가금액": st.column_config.NumberColumn(format="%,d 원"),
+                        "평가손익": st.column_config.NumberColumn(format="%,d 원"),
+                        "수익률(%)": st.column_config.NumberColumn(format="%.2f%%")
                     }
                 )
-    
-                # CSV 다운로드 버튼 (BOM 포함 바이트 스트림 적용으로 엑셀 한글 깨짐 방지)
-                csv_bytes = df_admin_lb.to_csv(index=True, encoding="utf-8-sig").encode("utf-8-sig")
-                st.download_button(
-                    label="📥 랭킹 데이터 CSV 다운로드",
-                    data=csv_bytes,
-                    file_name=f"student_ranks_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                )
-    
-                st.divider()
-    
-                # --- 🔍 학생별 투자 종목 리스트 상세 조회 영역 ---
-                st.subheader("🔍 개별 학생 투자 포트폴리오 상세 조회")
-                
-                # 드롭다운 옵션 생성 (예: "10101 (김철수)")
-                student_list_opts = {f"{row['학번']} ({row['이름']})": row['학번'] for _, row in df_admin_lb.iterrows()}
-                selected_student_label = st.selectbox("포트폴리오를 조회할 학생 선택", list(student_list_opts.keys()))
-                selected_student_id = student_list_opts[selected_student_label]
-    
-                # 선택한 학생의 포트폴리오 정보 불러오기
-                selected_port = pd.read_sql(
-                    text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"),
-                    engine,
-                    params={"s_id": selected_student_id}
-                )
-    
-                if not selected_port.empty:
-                    selected_port['현재가'] = selected_port['symbol'].apply(get_current_price)
-                    selected_port['평가금액'] = selected_port['quantity'] * selected_port['현재가']
-                    selected_port['평가손익'] = selected_port['평가금액'] - (selected_port['quantity'] * selected_port['buy_price'])
-                    selected_port['수익률(%)'] = (selected_port['평가손익'] / (selected_port['quantity'] * selected_port['buy_price'])) * 100
-    
-                    # 보기 좋게 가공
-                    display_port = selected_port[['stock_name', 'symbol', 'quantity', 'buy_price', '현재가', '평가금액', '평가손익', '수익률(%)']].copy()
-                    display_port.columns = ['종목명', '종목코드', '보유수량', '평균매수가', '현재가', '평가금액', '평가손익', '수익률(%)']
-    
-                    st.dataframe(
-                        display_port,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "보유수량": st.column_config.NumberColumn(format="%,d 주"),
-                            "평균매수가": st.column_config.NumberColumn(format="%,d 원"),
-                            "현재가": st.column_config.NumberColumn(format="%,d 원"),
-                            "평가금액": st.column_config.NumberColumn(format="%,d 원"),
-                            "평가손익": st.column_config.NumberColumn(format="%,d 원"),
-                            "수익률(%)": st.column_config.NumberColumn(format="%.2f%%")
-                        }
-                    )
-                else:
-                    st.info(f"💡 {selected_student_label} 학생은 현재 보유 중인 주식이 없습니다 (전액 예수금 보유 중).")
-    
             else:
-                st.info("등록된 학생 회원이 없습니다.")
+                st.info(f"💡 {selected_student_label} 학생은 현재 보유 중인 주식이 없습니다 (전액 예수금 보유 중).")
+
+        else:
+            st.info("등록된 학생 회원이 없습니다.")
 
     # -----------------------------------------------------
     # TAB 2: 시드 머니(예수금) 관리
