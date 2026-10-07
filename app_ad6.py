@@ -760,19 +760,22 @@ else:
                     analysis_tips = analyze_stock_indicators(df_hist)
                     
                     if analysis_tips:
-                        for tip_type, msg in analysis_tips:
-                            if tip_type == "success":
-                                st.success(msg)
-                            elif tip_type == "warning":
-                                st.warning(msg)
-                            elif tip_type == "info":
-                                st.info(msg)
-                            else:
-                                st.caption(msg)  # secondary(중립/종합안내)의 경우 회색 캡션 텍스트로 출력
-                    else:
-                        st.caption("분석을 위한 데이터가 부족합니다.")
-                else:
-                    st.info("차트 데이터를 불러올 수 없습니다.")
+                        col_t1, col_t2, col_t3 = st.columns(3)
+                        
+                        # 세 가지 지표를 3열에 나누어 배치
+                        with col_t1:
+                            st.markdown("**📈 이동평균선**")
+                            st.caption(analysis_tips[0][1])
+                        with col_t2:
+                            st.markdown("**📊 RSI 지표**")
+                            st.caption(analysis_tips[1][1])
+                        with col_t3:
+                            st.markdown("**🔔 볼린저 밴드**")
+                            st.caption(analysis_tips[2][1])
+                            
+                        st.divider()
+                        # 하단에 종합 판단만 한 줄로 표시
+                        st.info(analysis_tips[3][1])
 
             # 우측: 매수 주문 폼
             max_buy_qty = int(cash // current_price) if current_price > 0 else 0 # 매수 가능 최대 주식 수
