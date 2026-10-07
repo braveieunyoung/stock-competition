@@ -192,6 +192,7 @@ def analyze_stock_indicators(df):
     prev = df_calc.iloc[-2]
 
     tips = []
+    signal_score = 0
 
     # [분석 1] 이동평균선 교차
     if latest['MA5'] >= latest['MA20']:
