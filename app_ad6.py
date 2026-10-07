@@ -168,7 +168,7 @@ def get_stock_history(symbol):
 # 2. 페이지 기본 설정 및 Custom CSS 적용
 # ---------------------------------------------------------
 # Streamlit 웹 페이지 제목 및 레이아웃 설정 (wide: 화면 전체 넓이 사용)
-st.set_page_config(page_title="학생 모의주식 투자 대회", layout="wide")
+st.set_page_config(page_title="모의주식 투자", layout="wide")
 
 # 가시성을 높이기 위해 폰트 크기를 키우는 CSS 스타일 주입
 st.markdown("""
