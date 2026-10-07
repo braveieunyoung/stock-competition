@@ -220,8 +220,6 @@ def analyze_stock_indicators(df):
         elif close_val <= lower_val:
             tips.append(("info", "💡 **볼린저 밴드 하단 터치**: 주가가 하한 변동 폭의 최하단에 도달했습니다. 기술적 반등 가능성이 있습니다."))
 
-    return tips
-
     # [분석 4] 종합 판단 로직 추가
     signal_score = 0  # 매수(+)/매도(-) 기여도 점수
 
@@ -247,11 +245,11 @@ def analyze_stock_indicators(df):
 
     # 종합 의견 메시지 추가 (리스트 맨 앞에 넣거나 마지막에 추가)
     if signal_score >= 1:
-        tips.append(("success", "🎯 **종합 판단**: 상승 전환 가능성이 높거나 저점 매수 기회로 해석되는 구간입니다."))
+        tips.append(("success", "📊 **종합 판단**: 상승 전환 가능성이 높거나 저점 매수 기회로 해석되는 구간입니다."))
     elif signal_score <= -1:
-        tips.append(("warning", "🎯 **종합 판단**: 하락 추세 또는 과열 위험이 존재하므로 관망 및 신중한 매수를 권장합니다."))
+        tips.append(("warning", "📊 **종합 판단**: 하락 추세 또는 과열 위험이 존재하므로 관망 및 신중한 매수를 권장합니다."))
     else:
-        tips.append(("secondary", "🎯 **종합 판단**: 지표별 신호가 상충하거나 중립입니다. 명확한 방향성이 나타날 때까지 관망하세요."))
+        tips.append(("secondary", "📊 **종합 판단**: 지표별 신호가 상충하거나 중립입니다. 명확한 방향성이 나타날 때까지 관망하세요."))
 
     return tips
 
