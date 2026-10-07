@@ -729,7 +729,7 @@ else:
         portfolio_df = pd.read_sql(text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), engine, params={"s_id": user_id})
 
         # 3개 탭 구성
-        tab1, tab2, tab3 = st.tabs(["💼 내 포트폴리오", "📈 주문 및 분석", "🥇 실시간 랭킹"])
+        tab1, tab2, tab3 = st.tabs(["💼 내 포트폴리오", "📈 주문", "🥇 실시간 랭킹"])
 
         # =========================================================
         # TAB 1: 내 포트폴리오 (자산 현황 + 보유 종목 리스트)
