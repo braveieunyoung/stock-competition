@@ -194,10 +194,12 @@ def analyze_stock_indicators(df):
     tips = []
 
     # [분석 1] 이동평균선 교차
-    if prev['MA5'] < prev['MA20'] and latest['MA5'] >= latest['MA20']:
-        tips.append(("success", "📈 **골든크로스 발생 (매수 신호)**: 5일 이동평균선이 20일선을 위로 돌파했습니다. 단기 상승 전환 가능성이 높습니다."))
-    elif prev['MA5'] > prev['MA20'] and latest['MA5'] <= latest['MA20']:
-        tips.append(("warning", "📉 **데드크로스 발생 (매도 주의)**: 5일 이동평균선이 20일선 아래로 돌파했습니다. 단기 조정/하락 가능성에 주의하세요."))
+    if latest['MA5'] >= latest['MA20']:
+        tips.append(("success", "📈 **상승 추세 (정배열)**: 5일 이동평균선이 20일선 위에 위치하여 상승 흐름을 유지하고 있습니다."))
+        signal_score += 1
+    else:
+        tips.append(("warning", "📉 **하락 추세 (역배열)**: 5일 이동평균선이 20일선 아래에 위치하여 조정/하락 흐름에 있습니다."))
+        signal_score -= 1
 
     # [분석 2] RSI (상대강도지수)
     rsi_val = latest['RSI']
@@ -214,11 +216,14 @@ def analyze_stock_indicators(df):
     upper_val = latest['BB_Upper']
     lower_val = latest['BB_Lower']
     
-    if pd.notna(upper_val) and pd.notna(lower_val):
-        if close_val >= upper_val:
-            tips.append(("warning", "⚠️ **볼린저 밴드 상단 터치**: 주가가 상한 변동 폭의 최상단에 도달했습니다. 단기 저항을 받을 수 있습니다."))
-        elif close_val <= lower_val:
-            tips.append(("info", "💡 **볼린저 밴드 하단 터치**: 주가가 하한 변동 폭의 최하단에 도달했습니다. 기술적 반등 가능성이 있습니다."))
+    if close_val >= upper_val:
+        tips.append(("warning", "⚠️ **볼린저 밴드 상단 터치**: 주가가 변동 폭 최상단에 도달했습니다."))
+        signal_score -= 1
+    elif close_val <= lower_val:
+        tips.append(("info", "💡 **볼린저 밴드 하단 터치**: 주가가 변동 폭 최하단에 도달했습니다."))
+        signal_score += 1
+    else:
+        tips.append(("secondary", "↔️ **볼린저 밴드 안쪽**: 주가가 정상 변동성 범위 내부에서 움직이고 있습니다."))
 
     # [분석 4] 종합 판단 로직 추가
     signal_score = 0  # 매수(+)/매도(-) 기여도 점수
