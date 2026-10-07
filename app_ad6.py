@@ -247,22 +247,30 @@ st.set_page_config(page_title="모의주식 투자", layout="wide")
 # 가시성을 높이기 위해 폰트 크기를 키우는 CSS 스타일 주입
 st.markdown("""
     <style>
-        /* 매수/매도 버튼 스타일 강화 (버튼 느낌 극대화) */
+        /* 1. 전체 본문 및 입력창 글자 크기 확대 */
+        html, body, [class*="css"], p, span, div, label { font-size: 20px !important; }
+        input, select, textarea { font-size: 20px !important; }
+        button[data-baseweb="tab"] { font-size: 24px !important; }
+        h2, .stSubheader { font-size: 28px !important; }
+        h1, .stTitle { font-size: 32px !important; }
+        [data-testid="stMetricValue"] { font-size: 26px !important; }
+    
+        /* 2. 매수/매도 버튼 다크 그레이 입체 스타일 */
         div[data-testid="stButton"] > button {
-            background-color: #4A5568 !important; /* 선명한 다크 그레이 배경 */
-            color: white !important;               /* 글자색 흰색 */
+            background-color: #4A5568 !important;
+            color: white !important;
+            font-size: 20px !important;
             font-weight: bold !important;
-            border-radius: 8px !important;         /* 둥근 테두리 */
+            border-radius: 8px !important;
             border: none !important;
             padding: 10px 20px !important;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; /* 입체감 그림자 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
             transition: all 0.2s ease-in-out !important;
         }
         
-        /* 마우스 호버(Hover) 시 효과 */
         div[data-testid="stButton"] > button:hover {
-            background-color: #2D3748 !important; /* 더 진한 회색 */
-            transform: translateY(-2px);           /* 살짝 떠오르는 효과 */
+            background-color: #2D3748 !important;
+            transform: translateY(-2px);
             box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15) !important;
         }
     </style>
