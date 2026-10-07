@@ -717,7 +717,7 @@ else:
             st.divider()
 
             # --- 주식 차트 및 매수 영역 ---
-            st.subheader("📈 관심 종목 차트 및 매수")
+            st.subheader("📈 종목 차트 및 매수")
             col_select, col_price, col_cash = st.columns([2, 1, 1])
             with col_select:
                 selected_stock_name = st.selectbox("종목 선택", list(STOCKS.keys()))
@@ -836,7 +836,7 @@ else:
             st.divider()
 
             # --- 보유 종목 목록 및 즉시 매도 영역 ---
-            st.markdown("### 📋 보유 종목")
+            st.markdown("### 📋 보유 종목 및 매도")
 
             if not portfolio_df.empty:
                 for idx, row in portfolio_df.iterrows():
