@@ -356,7 +356,6 @@ def render_sidebar_indices():
             else:
                 st.metric(label=idx_name, value=f"{val:,.2f}", delta=f"{chg:+.2f} ({pct:+.2f}%)")
 
-
 # ---------------------------------------------------------
 # FRAGMENT 2: 내 포트폴리오 
 # ---------------------------------------------------------
@@ -1113,7 +1112,7 @@ else:
                                 key=f"direct_sell_qty_{p_symbol}_{idx}"
                             )
                             est_sell_amount = p_curr_price * sell_qty
-                            st.caption(f"예상 입금액: **{int(round(est_sell_amount)):,} 원**")
+                            st.markdown(f"예상 입금액: **:blue[{int(round(est_sell_amount)):,} 원]**")
 
                             if st.button("매도 실행", key=f"btn_direct_sell_{p_symbol}_{idx}", type="primary", width="stretch"):
                                 if p_qty >= sell_qty > 0:
