@@ -7,4 +7,4 @@ plotly
 sqlalchemy
 psycopg2-binary
 streamlit-autorefresh
-finance_datareader
+finance-datareader
