@@ -818,7 +818,7 @@ def render_admin_dashboard():
 # 4. 로그인 및 인증 로직 (라우팅)
 # ---------------------------------------------------------
 if st.session_state.get('user') is None:
-    empty_left, center_content, empty_right = st.columns([1, 2, 1])
+    empty_left, center_content, empty_right = st.columns([0.5, 2, 0.5])
 
     with center_content:
         st.title("모의 주식 투자")
@@ -882,7 +882,8 @@ if st.session_state.get('user') is None:
                             else:
                                 st.error("비밀번호가 올바르지 않습니다.")
             with col2:
-                st.image("image.png", use_container_width=True)
+                img_path = os.path.join(os.path.dirname(__file__), "image.png")
+                st.image(img_path, use_container_width=True)
 
 
 # ---------------------------------------------------------
