@@ -109,7 +109,7 @@ POPULAR_STOCKS = {
         "알파벳A/구글 (GOOGL)": "GOOGL",
         "아마존 (AMZN)": "AMZN"
     },
-    "📊 지수 추종 ETF": {
+    " 지수 추종 ETF": {
         "KODEX 200 (한국대표)": "069500.KS",
         "KODEX 미국S&P500": "379800.KS",
         "KODEX 미국나스닥100": "379810.KS"
@@ -121,34 +121,45 @@ POPULAR_STOCKS = {
 def get_current_price(symbol):
     """주식 종목 심볼을 받아 현재가를 원화(KRW) 기준으로 가져오는 함수 (10초 캐싱)"""
     clean_symbol = symbol.replace('.KS', '').replace('.KQ', '').strip()
+    is_kodaq = symbol.endswith('.KQ')
     
-    # 1. 국내 주식
+    # 1. 국내 주식 (코스피 / 코스닥)
     if clean_symbol.isdigit():
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        try:
-            url_api = f"https://m.stock.naver.com/api/stock/{clean_symbol}/basic"
-            res = requests.get(url_api, headers=headers, timeout=2)
-            if res.status_code == 200:
-                val = res.json().get('nowVal', '').replace(',', '')
-                if val and float(val) > 0:
-                    return float(val)
-        except Exception:
-            pass
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+        }
+        
+        # 1-1. 네이버 모바일 API 시도 (코스닥은 .KQ, 코스피는 .KS/코드 시도)
+        api_symbols = [f"{clean_symbol}.KQ" if is_kodaq else clean_symbol, clean_symbol, f"{clean_symbol}.KS"]
+        for target_sym in api_symbols:
+            try:
+                url_api = f"https://m.stock.naver.com/api/stock/{target_sym}/basic"
+                res = requests.get(url_api, headers=headers, timeout=2)
+                if res.status_code == 200:
+                    data = res.json()
+                    val = str(data.get('nowVal', '')).replace(',', '').strip()
+                    if val and float(val) > 0:
+                        return float(val)
+            except Exception:
+                pass
 
+        # 1-2. 네이버 금융 웹 페이지 파싱 (백업)
         try:
             url_web = f"https://finance.naver.com/item/main.naver?code={clean_symbol}"
             res = requests.get(url_web, headers=headers, timeout=2)
             soup = BeautifulSoup(res.text, 'html.parser')
             price_tag = soup.select_one('p.no_today span.blind')
             if price_tag:
-                val = float(price_tag.text.replace(',', ''))
+                val = float(price_tag.text.replace(',', '').strip())
                 if val > 0:
                     return val
         except Exception:
             pass
 
+        # 1-3. Yahoo Finance 시도 (백업)
         try:
-            ticker = yf.Ticker(f"{clean_symbol}.KS")
+            yf_symbol = f"{clean_symbol}.KQ" if is_kodaq else f"{clean_symbol}.KS"
+            ticker = yf.Ticker(yf_symbol)
             df = ticker.history(period="1d")
             if not df.empty:
                 val = float(df['Close'].iloc[-1])
@@ -157,7 +168,7 @@ def get_current_price(symbol):
         except Exception:
             pass
 
-    # 2. 해외 주식
+    # 2. 해외 주식 (미국 빅테크 등)
     else:
         try:
             ticker = yf.Ticker(symbol)
@@ -333,9 +344,9 @@ def render_sidebar_indices():
 
 
 # ---------------------------------------------------------
-# FRAGMENT 2: 내 포트폴리오 (20초 자동 부분 갱신)
+# FRAGMENT 2: 내 포트폴리오 
 # ---------------------------------------------------------
-@st.fragment(run_every=20)
+@st.fragment(run_every=60)
 def render_portfolio_tab(user_id, cash, init_cash):
     st.subheader("💼 내 보유 자산 현황")
         
@@ -386,9 +397,9 @@ def render_portfolio_tab(user_id, cash, init_cash):
 
 
 # ---------------------------------------------------------
-# FRAGMENT 3: 실시간 랭킹 (20초 자동 부분 갱신)
+# FRAGMENT 3: 실시간 랭킹
 # ---------------------------------------------------------
-@st.fragment(run_every=20)
+@st.fragment(run_every=60)
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
         
