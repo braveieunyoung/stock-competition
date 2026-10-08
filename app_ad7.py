@@ -882,7 +882,7 @@ if st.session_state.get('user') is None:
                             else:
                                 st.error("비밀번호가 올바르지 않습니다.")
             with col2:
-                st.image("image.png", use_column_width=True)
+                st.image("image.png", use_container_width=True)
 
 
 # ---------------------------------------------------------
