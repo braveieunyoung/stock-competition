@@ -423,7 +423,7 @@ def render_leaderboard_tab():
        
     _, col_btn = st.columns([10, 1])
     with col_btn:
-        if st.button("🔄 새로고침", key="student_rank_refresh", type="secondary", use_container_width=True): 
+        if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
             st.rerun()
 
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
