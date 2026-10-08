@@ -934,7 +934,9 @@ else:
         # TAB 2: 매수하기
         # =========================================================
         with tab2:
-            col_cat, col_select = st.columns([1, 1.5])
+            # 분류선택, 종목선택, 현재가를 동일한 행(3 컬럼)에 배치
+            col_cat, col_select, col_price = st.columns(3)
+            
             with col_cat:
                 selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
             with col_select:
@@ -944,10 +946,8 @@ else:
 
             current_price = get_current_price(symbol)
 
-            # 종목 정보 및 차트 / 주문창 레이아웃
-            col_info1, col_info2 = st.columns(2)
-            col_info1.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
-            col_info2.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
+            with col_price:
+                st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
 
             left_col, right_col = st.columns([1.3, 1])
 
@@ -1009,6 +1009,8 @@ else:
             with right_col:
                 with st.container(border=True):
                     st.markdown("### ⚡ 매수 주문 입력")
+                    # 내 보유 예수금을 매수 주문 입력 박스 내부 상단으로 배치
+                    st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
                     st.caption(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
                     if st.button("최대 수량 채우기", key="btn_max_buy", width="stretch"):
                         st.session_state[buy_key] = max(1, max_buy_qty)
