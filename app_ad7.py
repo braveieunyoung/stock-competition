@@ -35,7 +35,7 @@ def get_db_engine():
 engine = get_db_engine()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def get_exchange_rate():
     """실시간 달러/원(USD/KRW) 환율을 가져오는 함수 (실패 시 기본값 1350.0원 반환)"""
     try:
@@ -52,9 +52,9 @@ def get_exchange_rate():
     return 1350.0
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def get_market_indices():
-    """주요 시장 지수(코스피, 코스닥, S&P 500) 및 환율 정보를 요약 반환하는 함수"""
+    """주요 시장 지수(코스피, 코스닥, S&P 500) 및 환율 정보를 실시간으로 요약 반환하는 함수"""
     indices = {
         "코스피": "^KS11",
         "코스닥": "^KQ11",
@@ -64,7 +64,8 @@ def get_market_indices():
     for name, ticker_symbol in indices.items():
         try:
             t = yf.Ticker(ticker_symbol)
-            df = t.history(period="2d")
+            # 최근 5일 데이터를 가져와서 유효한 거래일 종가 비교
+            df = t.history(period="5d")
             if len(df) >= 2:
                 curr = float(df['Close'].iloc[-1])
                 prev = float(df['Close'].iloc[-2])
@@ -109,7 +110,7 @@ POPULAR_STOCKS = {
         "알파벳A/구글 (GOOGL)": "GOOGL",
         "아마존 (AMZN)": "AMZN"
     },
-    "📊 지수 추종 ETF": {
+    " 지수 추종 ETF": {
         "KODEX 200 (한국대표)": "069500.KS",
         "KODEX 미국S&P500": "379800.KS",
         "KODEX 미국나스닥100": "379810.KS"
@@ -194,7 +195,7 @@ def get_stock_history(symbol):
 
 
 def analyze_stock_indicators(df):
-    """주가 데이터를 바탕으로 보조지표(MA, RSI, 볼린저밴드) 계산 및 간단 분석 팁 생성"""
+    """보조지표(MA, RSI, 볼린저밴드) 구조화 분석 결과 생성"""
     if len(df) < 20:
         return None
 
@@ -215,48 +216,104 @@ def analyze_stock_indicators(df):
     df_calc['BB_Lower'] = df_calc['BB_Middle'] - (std * 2)
 
     latest = df_calc.iloc[-1]
-    tips = []
+    indicators = []
     signal_score = 0
 
+    # 1. 이동평균선
     if latest['MA5'] >= latest['MA20']:
-        tips.append(("success", "**이동평균선(상승 추세)**: 5일선이 20일선 위에 위치하여 단기 상승 흐름을 유지하고 있습니다."))
+        indicators.append({
+            "name": "이동평균선 (MA)",
+            "status": "상승 추세",
+            "badge": "success",
+            "desc": "5일 이동평균선이 20일선 위에 위치하여 단기 상승 흐름을 유지 중입니다."
+        })
         signal_score += 1
     else:
-        tips.append(("warning", "**이동평균선(하락 추세)**: 5일선이 20일선 아래에 위치하여 단기 조정/하락 흐름에 있습니다."))
+        indicators.append({
+            "name": "이동평균선 (MA)",
+            "status": "하락 추세",
+            "badge": "warning",
+            "desc": "5일 이동평균선이 20일선 아래에 위치하여 단기 조정/하락 흐름에 있습니다."
+        })
         signal_score -= 1
 
+    # 2. RSI
     rsi_val = latest['RSI']
     if pd.notna(rsi_val):
         if rsi_val <= 30:
-            tips.append(("info", f"**RSI 과매도 ({rsi_val:.1f})**: 주가가 과도하게 하락하여 단기 반등을 기대해볼 수 있습니다."))
+            indicators.append({
+                "name": "RSI 지표",
+                "status": f"과매도 구간 ({rsi_val:.1f})",
+                "badge": "info",
+                "desc": "주가가 과도하게 하락하여 기술적 단기 반등 가능성이 높습니다."
+            })
             signal_score += 1
         elif rsi_val >= 70:
-            tips.append(("warning", f"**RSI 과매수 ({rsi_val:.1f})**: 단기 급등으로 주가가 과열되어 조정 가능성이 있습니다."))
+            indicators.append({
+                "name": "RSI 지표",
+                "status": f"과매수 구간 ({rsi_val:.1f})",
+                "badge": "warning",
+                "desc": "단기 급등으로 과열 상태이며 매물 출회 위험이 존재합니다."
+            })
             signal_score -= 1
         else:
-            tips.append(("secondary", f"**RSI 중립 ({rsi_val:.1f})**: 과열이나 과매도 없이 안정적인 세를 유지하고 있습니다."))
+            indicators.append({
+                "name": "RSI 지표",
+                "status": f"중립 구간 ({rsi_val:.1f})",
+                "badge": "secondary",
+                "desc": "과열이나 과매도 없이 안정적인 균형 상태를 나타냅니다."
+            })
 
+    # 3. 볼린저 밴드
     close_val = latest['Close']
     upper_val = latest['BB_Upper']
     lower_val = latest['BB_Lower']
     
     if close_val >= upper_val:
-        tips.append(("warning", "**볼린저 밴드**: 주가가 상한 변동 폭 최상단에 도달하여 단기 저항을 받을 수 있습니다."))
+        indicators.append({
+            "name": "볼린저 밴드",
+            "status": "상단 돌파/저항",
+            "badge": "warning",
+            "desc": "주가가 변동 폭 최상단에 도달하여 단기 상방 저항을 받을 수 있습니다."
+        })
         signal_score -= 1
     elif close_val <= lower_val:
-        tips.append(("info", "**볼린저 밴드**: 주가가 하한 변동 폭 최하단에 도달하여 기술적 반등 가능성이 있습니다."))
+        indicators.append({
+            "name": "볼린저 밴드",
+            "status": "하단 접촉/지지",
+            "badge": "info",
+            "desc": "주가가 변동 폭 최하단에 도달하여 하방 지지력이 작동할 수 있습니다."
+        })
         signal_score += 1
     else:
-        tips.append(("secondary", "**볼린저 밴드**: 주가가 정상 변동 범위 내부에서 움직이고 있습니다."))
+        indicators.append({
+            "name": "볼린저 밴드",
+            "status": "정상 범위 내",
+            "badge": "secondary",
+            "desc": "주가가 밴드 내부에서 정상적인 변동성 범위 내 이동 중입니다."
+        })
 
+    # 4. 종합 판단
     if signal_score >= 1:
-        tips.append(("success", "**종합 판단**: 상승 전환 가능성이 높거나 저점 매수 기회로 해석되는 구간입니다."))
+        overall = {
+            "title": "💡 AI 종합 판단: 긍정적 (매수 관심)",
+            "badge": "success",
+            "desc": "보조지표 종합 결과 상승 전환 가능성이 높거나 저점 매수 기회로 해석됩니다."
+        }
     elif signal_score <= -1:
-        tips.append(("warning", "**종합 판단**: 하락 추세 또는 과열 위험이 존재하므로 관망 및 신중한 매수를 권장합니다."))
+        overall = {
+            "title": "⚠️ AI 종합 판단: 신중한 관망 권장",
+            "badge": "warning",
+            "desc": "하락 추세 또는 과열 위험 신호가 감지되므로 매수에 유의하시기 바랍니다."
+        }
     else:
-        tips.append(("secondary", "**종합 판단**: 지표별 신호가 상충하거나 중립 상태이므로 명확한 방향성이 나올 때까지 관망하세요."))
+        overall = {
+            "title": "⚖️ AI 종합 판단: 중립 (방향성 탐색 중)",
+            "badge": "info",
+            "desc": "지표별 신호가 혼재되어 있으므로 확실한 방향성이 나타날 때까지 관망하세요."
+        }
 
-    return tips
+    return {"items": indicators, "overall": overall}
 
 
 # ---------------------------------------------------------
@@ -716,8 +773,11 @@ else:
         render_admin_dashboard()
 
     else:
+        # [개선] 주요 증시 및 환율 정보 패널
         with st.sidebar:
             st.subheader("🌐 주요 증시 & 환율")
+            if st.button("🔄 시세 새로고침", key="sidebar_indices_refresh"):
+                st.rerun()
             indices_data = get_market_indices()
             if indices_data:
                 for idx_name, val_tuple in indices_data.items():
@@ -832,19 +892,36 @@ else:
                             fig_line.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
                             st.plotly_chart(fig_line, width="stretch")
 
-                    # [수정 1] AI 분석 리포트 전체 내용 출력
-                    analysis_tips = analyze_stock_indicators(df_hist)
-                    if analysis_tips:
-                        st.markdown("### 💡 AI 보조지표 종합 분석")
-                        for tip_type, tip_text in analysis_tips:
-                            if tip_type == "success":
-                                st.success(tip_text)
-                            elif tip_type == "warning":
-                                st.warning(tip_text)
-                            elif tip_type == "info":
-                                st.info(tip_text)
-                            else:
-                                st.caption(tip_text)
+                    # [개선] 가독성을 극대화한 카드 UI 형태의 AI 기술적 분석 리포트
+                    analysis_res = analyze_stock_indicators(df_hist)
+                    if analysis_res:
+                        st.markdown("### 📊 AI 기술적 보조지표 리포트")
+                        
+                        # 1. 지표별 개별 분석
+                        for item in analysis_res["items"]:
+                            with st.container(border=True):
+                                c1, c2 = st.columns([1, 2])
+                                with c1:
+                                    st.markdown(f"**{item['name']}**")
+                                    if item['badge'] == "success":
+                                        st.success(f"● {item['status']}")
+                                    elif item['badge'] == "warning":
+                                        st.warning(f"● {item['status']}")
+                                    elif item['badge'] == "info":
+                                        st.info(f"● {item['status']}")
+                                    else:
+                                        st.caption(f"● {item['status']}")
+                                with c2:
+                                    st.write(item['desc'])
+
+                        # 2. 종합 판단 요약
+                        overall = analysis_res["overall"]
+                        if overall['badge'] == "success":
+                            st.success(f"{overall['title']}\n\n{overall['desc']}")
+                        elif overall['badge'] == "warning":
+                            st.warning(f"{overall['title']}\n\n{overall['desc']}")
+                        else:
+                            st.info(f"{overall['title']}\n\n{overall['desc']}")
 
                 max_buy_qty = int(cash // current_price) if current_price > 0 else 0
                 buy_key = f"buy_input_{symbol}"
@@ -897,7 +974,6 @@ else:
                                 st.error("예수금이 부족합니다!")
 
             # --- SUB TAB 2: 매도하기 ---
-            # [수정 2] 보유 종목 목록을 데이터프레임으로 출력 후 매도 주문 입력
             with order_subtab2:
                 st.subheader("💰 보유 주식 매도")
 
