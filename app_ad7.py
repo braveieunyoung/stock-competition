@@ -320,19 +320,19 @@ def analyze_stock_indicators(df):
     # 4. 종합 판단
     if signal_score >= 1:
         overall = {
-            "title": " 분석 요약: 긍정적 (매수 관심)",
+            "title": "분석 요약: 긍정적 (매수 관심)",
             "badge": "success",
             "desc": "보조지표 종합 결과 상승 전환 가능성이 높거나 저점 매수 기회로 해석됩니다."
         }
     elif signal_score <= -1:
         overall = {
-            "title": " 분석 요약: 신중한 관망 권장",
+            "title": "분석 요약: 신중한 관망 권장",
             "badge": "warning",
             "desc": "하락 추세 또는 과열 위험 신호가 감지되므로 매수에 유의하시기 바랍니다."
         }
     else:
         overall = {
-            "title": " 분석 요약: 중립 (방향성 탐색 중)",
+            "title": "분석 요약: 중립 (방향성 탐색 중)",
             "badge": "info",
             "desc": "지표별 신호가 혼재되어 있으므로 확실한 방향성이 나타날 때까지 관망하세요."
         }
@@ -1021,10 +1021,9 @@ else:
             with right_col:
                 with st.container(border=True):
                     st.markdown("### ⚡ 매수 주문 입력")
-                    # 내 보유 예수금을 매수 주문 입력 박스 내부 상단으로 배치
                     st.metric(label="내 보유 예수금", value=f"**:red[{cash:,.0f}]** 원")
                     st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
-                    st.caption(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
+                    st.markdown(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
                     if st.button("최대 수량 채우기", key="btn_max_buy", width="stretch"):
                         st.session_state[buy_key] = max(1, max_buy_qty)
                         st.rerun()
