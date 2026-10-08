@@ -883,8 +883,14 @@ if st.session_state.get('user') is None:
                             else:
                                 st.error("비밀번호가 올바르지 않습니다.")
             with col2:
+                # 현재 파일 기준으로 absolute path 생성
                 img_path = os.path.join(os.path.dirname(__file__), "image.png")
-                st.image(img_path, use_container_width=True)
+                
+                # 파일이 실제 존재하는지 검사
+                if os.path.exists(img_path):
+                    st.image(img_path, use_container_width=True)
+                else:
+                    st.warning("⚠️ image.png 파일을 찾을 수 없습니다. GitHub 저장소의 파일명(대소문자 포함)을 확인해 주세요.")
 
 
 # ---------------------------------------------------------
