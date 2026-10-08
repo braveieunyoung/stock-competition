@@ -7,14 +7,13 @@ import requests                   # 웹 서버 HTTP 요청용 라이브러리
 from bs4 import BeautifulSoup     # HTML 웹 페이지 파싱용 라이브러리
 from datetime import datetime     # 날짜 및 시간 처리용 라이브러리
 import yfinance as yf             # 야후 파이낸스 주식 데이터 수집용 라이브러리
-import FinanceDataReader as fdr  # 한국거래소(KRX) 전체 상장 종목 수집용
 import plotly.graph_objects as go # Plotly 캔들차트 생성용
 import plotly.express as px       # Plotly 선 그래프 생성용
 from sqlalchemy import create_engine, text # PostgreSQL DB 연결 및 SQL 실행용
 
 
 # ---------------------------------------------------------
-# 1. DB 연결 및 환율, 시세, 지수, 전체 종목 조회 함수 설정
+# 1. DB 연결 및 환율, 시세, 지수, 대표 종목 조회 함수 설정
 # ---------------------------------------------------------
 
 @st.cache_resource
@@ -55,11 +54,11 @@ def get_exchange_rate():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_market_indices():
-    """주요 시장 지수(코스피, 코스닥, S&P 500) 및 환율 정보를 가져오는 함수"""
+    """주요 시장 지수(코스피, 코스닥, S&P 500) 및 환율 정보를 요약 반환하는 함수"""
     indices = {
         "코스피": "^KS11",
         "코스닥": "^KQ11",
-        "S&P 500": "^GSPC"
+        "S&P500": "^GSPC"
     }
     results = {}
     for name, ticker_symbol in indices.items():
@@ -78,48 +77,44 @@ def get_market_indices():
         except Exception:
             pass
             
-    # 실시간 환율 정보 추가
     rate = get_exchange_rate()
     results["USD/KRW"] = (rate, 0.0, 0.0)
     return results
 
 
-@st.cache_data(ttl=86400, show_spinner=False) # 24시간 캐싱
-def get_all_krx_stocks():
-    """한국거래소(KRX) 전체 상장 종목 + 해외 대표 종목 목록을 가져오는 함수"""
-    # 기본 예비 종목 리스트
-    default_stocks = {
-        "삼성전자": "005930.KS", "SK하이닉스": "000660.KS", "NAVER": "035420.KS",
-        "현대차": "005380.KS", "LG에너지솔루션": "373220.KS", "셀트리온": "068270.KS",
-        "기아": "000270.KS", "한화오션": "042660.KS", "POSCO홀딩스": "005490.KS",
-        "KODEX200(ETF)": "069500.KS", "KODEX 미국S&P500(ETF)": "379800.KS",
-        "KODEX 미국나스닥100(ETF)": "379810.KS", "에코프로비엠 (코스닥)": "247540.KQ",
-        "애플 (미국)": "AAPL", "테슬라 (미국)": "TSLA", "엔비디아 (미국)": "NVDA"
+# 학생/초보자 대상 주요 대표 종목 목록 (카테고리별)
+POPULAR_STOCKS = {
+    "🇰🇷 코스피 우량주": {
+        "삼성전자": "005930.KS",
+        "SK하이닉스": "000660.KS",
+        "NAVER": "035420.KS",
+        "현대차": "005380.KS",
+        "LG에너지솔루션": "373220.KS",
+        "셀트리온": "068270.KS",
+        "기아": "000270.KS",
+        "POSCO홀딩스": "005490.KS",
+        "한화오션": "042660.KS"
+    },
+    "🇰🇷 코스닥 대표주": {
+        "에코프로비엠": "247540.KQ",
+        "에코프로": "086520.KQ",
+        "HLB": "028300.KQ",
+        "알테오젠": "196170.KQ"
+    },
+    "🇺🇸 미국 빅테크": {
+        "애플 (AAPL)": "AAPL",
+        "테슬라 (TSLA)": "TSLA",
+        "엔비디아 (NVDA)": "NVDA",
+        "마이크로소프트 (MSFT)": "MSFT",
+        "알파벳A/구글 (GOOGL)": "GOOGL",
+        "아마존 (AMZN)": "AMZN"
+    },
+    "📊 지수 추종 ETF": {
+        "KODEX 200 (한국대표)": "069500.KS",
+        "KODEX 미국S&P500": "379800.KS",
+        "KODEX 미국나스닥100": "379810.KS"
     }
-    try:
-        df_krx = fdr.StockListing('KRX')
-        df_filtered = df_krx[['Code', 'Name', 'Market']].dropna().copy()
-        
-        # yfinance 규격에 맞춰 종목 코드 뒤에 .KS / .KQ 추가
-        df_filtered['Symbol'] = df_filtered.apply(
-            lambda r: f"{r['Code']}.KS" if r['Market'] == 'KOSPI' else f"{r['Code']}.KQ", axis=1
-        )
-        
-        # {종목명 (시장): 심볼} 구조로 변환
-        stock_dict = {f"{row['Name']} ({row['Market']})": row['Symbol'] for _, row in df_filtered.iterrows()}
-        
-        # 해외 대표 주식 상단 결합
-        us_stocks = {
-            "애플 (미국)": "AAPL",
-            "테슬라 (미국)": "TSLA",
-            "엔비디아 (미국)": "NVDA",
-            "마이크로소프트 (미국)": "MSFT",
-            "알파벳A/구글 (미국)": "GOOGL",
-            "아마존 (미국)": "AMZN"
-        }
-        return {**us_stocks, **stock_dict}
-    except Exception:
-        return default_stocks
+}
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -199,24 +194,21 @@ def get_stock_history(symbol):
 
 
 def analyze_stock_indicators(df):
-    """주가 과거 데이터를 바탕으로 보조지표(MA, RSI, 볼린저밴드)를 계산해 투자 팁을 생성하는 함수"""
+    """주가 데이터를 바탕으로 보조지표(MA, RSI, 볼린저밴드) 계산 및 간단 분석 팁 생성"""
     if len(df) < 20:
         return None
 
     df_calc = df.copy()
 
-    # 1. 이동평균선
     df_calc['MA5'] = df_calc['Close'].rolling(window=5).mean()
     df_calc['MA20'] = df_calc['Close'].rolling(window=20).mean()
 
-    # 2. RSI
     delta = df_calc['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df_calc['RSI'] = 100 - (100 / (1 + rs))
 
-    # 3. 볼린저 밴드
     df_calc['BB_Middle'] = df_calc['MA20']
     std = df_calc['Close'].rolling(window=20).std()
     df_calc['BB_Upper'] = df_calc['BB_Middle'] + (std * 2)
@@ -274,21 +266,21 @@ st.set_page_config(page_title="모의주식 투자", layout="wide")
 
 st.markdown("""
     <style>
-        html, body, [class*="css"], p, span, div, label { font-size: 20px !important; }
-        input, select, textarea { font-size: 20px !important; }
-        button[data-baseweb="tab"] { font-size: 24px !important; }
-        h2, .stSubheader { font-size: 28px !important; }
-        h1, .stTitle { font-size: 32px !important; }
-        [data-testid="stMetricValue"] { font-size: 26px !important; }
+        html, body, [class*="css"], p, span, div, label { font-size: 19px !important; }
+        input, select, textarea { font-size: 19px !important; }
+        button[data-baseweb="tab"] { font-size: 22px !important; }
+        h2, .stSubheader { font-size: 26px !important; }
+        h1, .stTitle { font-size: 30px !important; }
+        [data-testid="stMetricValue"] { font-size: 24px !important; }
     
         div[data-testid="stButton"] > button {
             background-color: #4A5568 !important;
             color: white !important;
-            font-size: 20px !important;
+            font-size: 19px !important;
             font-weight: bold !important;
             border-radius: 8px !important;
             border: none !important;
-            padding: 10px 20px !important;
+            padding: 8px 16px !important;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
             transition: all 0.2s ease-in-out !important;
         }
@@ -710,6 +702,7 @@ else:
     user_id = st.session_state.user["student_id"]
     user_name = st.session_state.user["name"]
 
+    # 상단 헤더
     top_col1, top_col2 = st.columns([5, 1])
     with top_col1:
         st.title(f"🏆 {user_name} ({user_id}) 님의 대시보드")
@@ -723,23 +716,17 @@ else:
         render_admin_dashboard()
 
     else:
-        # --- 🌐 상단 주요 증시 지수 & 환율 전광판 ---
-        st.subheader("🌐 주요 증시 지수 & 환율 현황")
-        indices_data = get_market_indices()
-
-        if indices_data:
-            idx_cols = st.columns(len(indices_data))
-            for col, (idx_name, val_tuple) in zip(idx_cols, indices_data.items()):
-                val, chg, pct = val_tuple
-                if idx_name == "USD/KRW":
-                    col.metric(label=idx_name, value=f"{val:,.1f} 원")
-                else:
-                    col.metric(
-                        label=idx_name, 
-                        value=f"{val:,.2f}", 
-                        delta=f"{chg:+.2f} ({pct:+.2f}%)"
-                    )
-        st.divider()
+        # [개선 1] 증시 지수/환율 정보를 사이드바에 콤팩트하게 노출
+        with st.sidebar:
+            st.subheader("🌐 주요 증시 & 환율")
+            indices_data = get_market_indices()
+            if indices_data:
+                for idx_name, val_tuple in indices_data.items():
+                    val, chg, pct = val_tuple
+                    if idx_name == "USD/KRW":
+                        st.metric(label=idx_name, value=f"{val:,.1f} 원")
+                    else:
+                        st.metric(label=idx_name, value=f"{val:,.2f}", delta=f"{chg:+.2f} ({pct:+.2f}%)")
 
         with engine.connect() as conn:
             user_row = conn.execute(
@@ -756,7 +743,8 @@ else:
 
         portfolio_df = pd.read_sql(text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), engine, params={"s_id": user_id})
 
-        tab1, tab2, tab3 = st.tabs(["💼 내 포트폴리오", "📈 주문", "🥇 실시간 랭킹"])
+        # 메인 탭 3개 배치
+        tab1, tab2, tab3 = st.tabs(["💼 내 포트폴리오", "📈 주식 주문 (매수/매도)", "🥇 실시간 랭킹"])
 
         # =========================================================
         # TAB 1: 내 포트폴리오
@@ -803,162 +791,151 @@ else:
                 st.info("현재 보유 중인 주식이 없습니다.")
 
         # =========================================================
-        # TAB 2: 주문 및 분석 (전체 상장 종목 검색 연동)
+        # TAB 2: 주식 주문 (매수 / 매도 서브 탭 분리)
         # =========================================================
         with tab2:
-            st.subheader("📈 종목 차트 및 매수")
-            
-            # 전체 종목 리스트 가져오기 (캐싱 적용)
-            all_stocks = get_all_krx_stocks()
+            # [개선 3] 매수/매도를 서브 탭으로 분리하여 스크롤 해제
+            order_subtab1, order_subtab2 = st.tabs(["🛒 매수하기", "💰 매도하기"])
 
-            col_select, col_price, col_cash = st.columns([2.5, 1, 1])
-            with col_select:
-                selected_stock_name = st.selectbox(
-                    "🔍 거래할 종목 검색 (종목명/코드 입력)", 
-                    options=list(all_stocks.keys()),
-                    index=0
-                )
-                symbol = all_stocks[selected_stock_name]
+            # --- SUB TAB 1: 매수하기 ---
+            with order_subtab1:
+                # [개선 2] 카테고리별 초보자용 인기주 선택
+                col_cat, col_select = st.columns([1, 1.5])
+                with col_cat:
+                    selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
+                with col_select:
+                    category_stocks = POPULAR_STOCKS[selected_category]
+                    selected_stock_name = st.selectbox("종목 선택", list(category_stocks.keys()))
+                    symbol = category_stocks[selected_stock_name]
+
                 current_price = get_current_price(symbol)
 
-            with col_price:
-                st.metric(label="현재가", value=f"{current_price:,.0f} 원")
+                # 종목 정보 및 차트 / 주문창 레이아웃
+                col_info1, col_info2 = st.columns(2)
+                col_info1.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
+                col_info2.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
 
-            with col_cash:
-                st.metric(label="보유 예수금", value=f"{cash:,.0f} 원")
+                left_col, right_col = st.columns([1.3, 1])
 
-            left_col, right_col = st.columns([1.3, 1])
+                with left_col:
+                    df_hist = get_stock_history(symbol)
+                    if not df_hist.empty:
+                        chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
+                        with chart_tab1:
+                            fig_candle = go.Figure(data=[go.Candlestick(
+                                x=df_hist['Date'], open=df_hist['Open'], high=df_hist['High'],
+                                low=df_hist['Low'], close=df_hist['Close'],
+                                increasing_line_color='#e12343', decreasing_line_color='#1261c4'
+                            )])
+                            fig_candle.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False)
+                            st.plotly_chart(fig_candle, width="stretch")
 
-            with left_col:
-                st.caption(f"**{selected_stock_name}** 최근 3개월 차트")
-                df_hist = get_stock_history(symbol)
-                if not df_hist.empty:
-                    chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
-                    with chart_tab1:
-                        fig_candle = go.Figure(data=[go.Candlestick(
-                            x=df_hist['Date'], open=df_hist['Open'], high=df_hist['High'],
-                            low=df_hist['Low'], close=df_hist['Close'],
-                            increasing_line_color='#e12343', decreasing_line_color='#1261c4'
-                        )])
-                        fig_candle.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False)
-                        st.plotly_chart(fig_candle, width="stretch")
+                        with chart_tab2:
+                            fig_line = px.line(df_hist, x='Date', y='Close')
+                            fig_line.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
+                            st.plotly_chart(fig_line, width="stretch")
 
-                    with chart_tab2:
-                        fig_line = px.line(df_hist, x='Date', y='Close')
-                        fig_line.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10))
-                        st.plotly_chart(fig_line, width="stretch")
+                    analysis_tips = analyze_stock_indicators(df_hist)
+                    if analysis_tips:
+                        st.info(f"💡 **AI 분석 요약**: {analysis_tips[3][1]}")
 
-                st.markdown("#### 💡 AI 데이터 분석 및 투자 팁")
-                analysis_tips = analyze_stock_indicators(df_hist)
-                if analysis_tips:
-                    col_t1, col_t2, col_t3 = st.columns(3)
-                    with col_t1:
-                        st.markdown("**📈 이동평균선**")
-                        st.caption(analysis_tips[0][1])
-                    with col_t2:
-                        st.markdown("**📊 RSI 지표**")
-                        st.caption(analysis_tips[1][1])
-                    with col_t3:
-                        st.markdown("**🔔 볼린저 밴드**")
-                        st.caption(analysis_tips[2][1])
-                    st.divider()
-                    st.info(analysis_tips[3][1])
+                max_buy_qty = int(cash // current_price) if current_price > 0 else 0
+                buy_key = f"buy_input_{symbol}"
+                if buy_key not in st.session_state: 
+                    st.session_state[buy_key] = 1
 
-            max_buy_qty = int(cash // current_price) if current_price > 0 else 0
-            buy_key = f"buy_input_{symbol}"
-            if buy_key not in st.session_state: 
-                st.session_state[buy_key] = 1
-
-            with right_col:
-                with st.container(border=True):
-                    st.markdown("**⚡매수 주문**")
-                    st.caption(f"최대 매수 가능: **{max_buy_qty:,}** 주")
-                    if st.button("최대 수량 채우기 (매수)", key="btn_max_buy", width="stretch"):
-                        st.session_state[buy_key] = max(1, max_buy_qty)
-                        st.rerun()
-
-                    buy_qty = st.number_input("매수 수량 선택", min_value=1, max_value=max(1, max_buy_qty) if max_buy_qty > 0 else 1, step=1, key=buy_key)
-                    total_buy_price = current_price * buy_qty
-                    st.markdown(f"총 매수 금액: **:red[{total_buy_price:,.0f} 원]**")
-
-                    if st.button("📉 매수 완료", key="btn_do_buy", type="secondary", width="stretch"):
-                        if current_price <= 0:
-                            st.error("현재가를 불러올 수 없습니다.")
-                        elif cash >= total_buy_price:
-                            new_cash = cash - total_buy_price
-                            with engine.begin() as conn:
-                                conn.execute(
-                                    text("UPDATE users SET cash = :cash WHERE student_id = :s_id"),
-                                    {"cash": new_cash, "s_id": user_id}
-                                )
-                                item = conn.execute(
-                                    text("SELECT quantity, buy_price FROM portfolio WHERE student_id = :s_id AND symbol = :sym"),
-                                    {"s_id": user_id, "sym": symbol}
-                                ).fetchone()
-
-                                if item:
-                                    old_qty, old_price = int(item[0]), float(item[1])
-                                    new_qty = old_qty + buy_qty
-                                    new_buy_price = ((old_qty * old_price) + total_buy_price) / new_qty
-                                    conn.execute(
-                                        text("UPDATE portfolio SET quantity = :qty, buy_price = :price WHERE student_id = :s_id AND symbol = :sym"),
-                                        {"qty": new_qty, "price": new_buy_price, "s_id": user_id, "sym": symbol}
-                                    )
-                                else:
-                                    conn.execute(
-                                        text("INSERT INTO portfolio (student_id, symbol, stock_name, quantity, buy_price) VALUES (:s_id, :sym, :s_name, :qty, :price)"),
-                                        {"s_id": user_id, "sym": symbol, "s_name": selected_stock_name, "qty": buy_qty, "price": current_price}
-                                    )
-                            st.success(f"{selected_stock_name} {buy_qty}주 매수 완료!")
-                            st.rerun()
-                        else:
-                            st.error("예수금이 부족합니다!")
-
-            st.divider()
-
-            st.markdown("### 📋 보유 종목 및 매도")
-
-            if not portfolio_df.empty:
-                for idx, row in portfolio_df.iterrows():
-                    p_symbol = row['symbol']
-                    p_name = row['stock_name']
-                    p_qty = int(row['quantity'])
-                    p_buy_price = float(row['buy_price'])
-                    p_curr_price = float(row['현재가'])
-                    p_eval_price = float(row['평가금액'])
-                    p_return = float(row['수익률(%)'])
-
+                with right_col:
                     with st.container(border=True):
-                        c_info, c_sell = st.columns([2.5, 1.5])
+                        st.markdown("### ⚡ 매수 주문 입력")
+                        st.caption(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
+                        if st.button("최대 수량 채우기", key="btn_max_buy", width="stretch"):
+                            st.session_state[buy_key] = max(1, max_buy_qty)
+                            st.rerun()
 
-                        with c_info:
-                            st.markdown(f"#### **{p_name}** (`{p_symbol}`)")
-                            m1, m2, m3, m4 = st.columns(4)
-                            m1.caption(f"보유 수량\n\n**{p_qty:,} 주**")
-                            m2.caption(f"평균 매수가\n\n**{int(round(p_buy_price)):,} 원**")
-                            m3.caption(f"현재가\n\n**{int(round(p_curr_price)):,} 원**")
-                            m4.caption(f"평가금액\n\n**{int(round(p_eval_price)):,} 원**")
+                        buy_qty = st.number_input("매수 수량 (주)", min_value=1, max_value=max(1, max_buy_qty) if max_buy_qty > 0 else 1, step=1, key=buy_key)
+                        total_buy_price = current_price * buy_qty
+                        st.markdown(f"총 결제 예정 금액: **:red[{total_buy_price:,.0f} 원]**")
 
+                        if st.button("📉 매수 주문 실행", key="btn_do_buy", type="primary", width="stretch"):
+                            if current_price <= 0:
+                                st.error("현재가를 불러올 수 없습니다.")
+                            elif cash >= total_buy_price:
+                                new_cash = cash - total_buy_price
+                                with engine.begin() as conn:
+                                    conn.execute(
+                                        text("UPDATE users SET cash = :cash WHERE student_id = :s_id"),
+                                        {"cash": new_cash, "s_id": user_id}
+                                    )
+                                    item = conn.execute(
+                                        text("SELECT quantity, buy_price FROM portfolio WHERE student_id = :s_id AND symbol = :sym"),
+                                        {"s_id": user_id, "sym": symbol}
+                                    ).fetchone()
+
+                                    if item:
+                                        old_qty, old_price = int(item[0]), float(item[1])
+                                        new_qty = old_qty + buy_qty
+                                        new_buy_price = ((old_qty * old_price) + total_buy_price) / new_qty
+                                        conn.execute(
+                                            text("UPDATE portfolio SET quantity = :qty, buy_price = :price WHERE student_id = :s_id AND symbol = :sym"),
+                                            {"qty": new_qty, "price": new_buy_price, "s_id": user_id, "sym": symbol}
+                                        )
+                                    else:
+                                        conn.execute(
+                                            text("INSERT INTO portfolio (student_id, symbol, stock_name, quantity, buy_price) VALUES (:s_id, :sym, :s_name, :qty, :price)"),
+                                            {"s_id": user_id, "sym": symbol, "s_name": selected_stock_name, "qty": buy_qty, "price": current_price}
+                                        )
+                                st.success(f"🎉 {selected_stock_name} {buy_qty}주 매수 완료!")
+                                st.rerun()
+                            else:
+                                st.error("예수금이 부족합니다!")
+
+            # --- SUB TAB 2: 매도하기 ---
+            with order_subtab2:
+                st.subheader("💰 보유 주식 매도")
+
+                if not portfolio_df.empty:
+                    # 보유 종목 드롭다운 선택
+                    sell_stock_list = {f"{row['stock_name']} ({row['quantity']}주 보유)": row['symbol'] for _, row in portfolio_df.iterrows()}
+                    selected_sell_label = st.selectbox("매도할 보유 종목 선택", list(sell_stock_list.keys()))
+                    sell_symbol = sell_stock_list[selected_sell_label]
+
+                    # 선택한 보유 주식 정보 가져오기
+                    target_row = portfolio_df[portfolio_df['symbol'] == sell_symbol].iloc[0]
+                    p_name = target_row['stock_name']
+                    p_qty = int(target_row['quantity'])
+                    p_buy_price = float(target_row['buy_price'])
+                    p_curr_price = get_current_price(sell_symbol)
+                    p_eval_price = p_qty * p_curr_price
+                    p_return = ((p_curr_price - p_buy_price) / p_buy_price) * 100 if p_buy_price > 0 else 0
+
+                    col_s1, col_s2 = st.columns([1.2, 1])
+
+                    with col_s1:
+                        with st.container(border=True):
+                            st.markdown(f"#### 📌 **{p_name}** 보유 현황")
+                            m1, m2, m3 = st.columns(3)
+                            m1.metric("보유 수량", f"{p_qty:,} 주")
+                            m2.metric("평균 매수가", f"{int(round(p_buy_price)):,} 원")
+                            m3.metric("현재가", f"{int(round(p_curr_price)):,} 원")
+                            
                             return_color = "red" if p_return > 0 else "blue" if p_return < 0 else "gray"
                             st.markdown(f"수익률: :{return_color}[**{'+' if p_return > 0 else ''}{p_return:.2f}%**]")
 
-                        with c_sell:
-                            st.markdown("**⚡매도 주문**")
-                            sell_port_key = f"sell_port_qty_{p_symbol}"
-                            
+                    with col_s2:
+                        with st.container(border=True):
+                            st.markdown("### ⚡ 매도 주문 입력")
                             sell_port_qty = st.number_input(
-                                "매도 수량", 
+                                "매도할 수량 (주)", 
                                 min_value=1, 
                                 max_value=p_qty, 
                                 value=1, 
                                 step=1, 
-                                key=sell_port_key
+                                key=f"sell_tab_qty_{sell_symbol}"
                             )
-                            
                             est_sell_amount = p_curr_price * sell_port_qty
-                            st.caption(f"예상 매도금액: **{int(round(est_sell_amount)):,} 원**")
+                            st.markdown(f"예상 입금 금액: **:blue[{int(round(est_sell_amount)):,} 원]**")
 
-                            if st.button("📈 매도 실행", key=f"btn_sell_port_{p_symbol}", type="secondary", use_container_width=True):
+                            if st.button("📈 매도 주문 실행", key=f"btn_do_sell_tab_{sell_symbol}", type="primary", width="stretch"):
                                 if p_qty >= sell_port_qty > 0:
                                     new_cash = cash + est_sell_amount
                                     with engine.begin() as conn:
@@ -970,19 +947,19 @@ else:
                                         if remain_qty > 0:
                                             conn.execute(
                                                 text("UPDATE portfolio SET quantity = :qty WHERE student_id = :s_id AND symbol = :sym"),
-                                                {"qty": remain_qty, "s_id": user_id, "sym": p_symbol}
+                                                {"qty": remain_qty, "s_id": user_id, "sym": sell_symbol}
                                             )
                                         else:
                                             conn.execute(
                                                 text("DELETE FROM portfolio WHERE student_id = :s_id AND symbol = :sym"),
-                                                {"s_id": user_id, "sym": p_symbol}
+                                                {"s_id": user_id, "sym": sell_symbol}
                                             )
-                                    st.success(f"{p_name} {sell_port_qty}주 매도 완료!")
+                                    st.success(f"🎉 {p_name} {sell_port_qty}주 매도 완료!")
                                     st.rerun()
                                 else:
                                     st.error("매도 수량이 올바르지 않습니다.")
-            else:
-                st.info("현재 보유 중인 주식이 없습니다.")
+                else:
+                    st.info("현재 보유 중인 주식이 없어 매도할 수 없습니다.")
 
         # =========================================================
         # TAB 3: 실시간 랭킹
