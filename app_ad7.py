@@ -972,7 +972,7 @@ else:
                 # 지표 3개 가로 배치 (3 컬럼) + 아래쪽 AI 종합 판단
                 analysis_res = analyze_stock_indicators(df_hist)
                 if analysis_res:
-                    st.markdown("### 📊 AI 기술적 보조지표 리포트")
+                    st.markdown("### 📊 기술적 보조지표 리포트")
                     
                     # 1. 보조지표 3개 가로 배치 (3 Columns)
                     c1, c2, c3 = st.columns(3)
