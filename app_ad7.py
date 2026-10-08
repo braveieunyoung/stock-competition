@@ -934,7 +934,7 @@ else:
         # TAB 2: 매수하기
         # =========================================================
         with tab2:
-            col_cat, col_select, col_info1 = st.columns([1, 1.5, 1])
+            col_cat, col_select, col_info1 = st.columns([1, 1, 1])
             with col_cat:
                 selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
             with col_select:
@@ -947,7 +947,6 @@ else:
             df_hist = get_stock_history(symbol)
 
             # 2. 상단 metric 표시 (전일 대비 등락폭 포함)
-            #col_info1, col_info2 = st.columns(2)
             with col_info1:
                 if not df_hist.empty and len(df_hist) >= 2:
                     prev_close = float(df_hist['Close'].iloc[-2])
@@ -956,14 +955,11 @@ else:
                     
                     st.metric(
                         label=f"{selected_stock_name} 현재가", 
-                        value=f"{current_price:,.0f} 원", 
+                        value=f"**{current_price:,.0f}** 원", 
                         delta=f"{price_diff:+,.0f} 원 ({price_pct:+.2f}%)"
                     )
                 else:
                     st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
-
-            #with col_info2:
-                #st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
 
             # 3. 차트 및 AI 보조지표 리포트 레이아웃
             left_col, right_col = st.columns([1.3, 1])
@@ -1026,7 +1022,7 @@ else:
                 with st.container(border=True):
                     st.markdown("### ⚡ 매수 주문 입력")
                     # 내 보유 예수금을 매수 주문 입력 박스 내부 상단으로 배치
-                    st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
+                    st.metric(label="내 보유 예수금", value=f"**:red{cash:,.0f}** 원")
                     st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
                     st.caption(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
                     if st.button("최대 수량 채우기", key="btn_max_buy", width="stretch"):
