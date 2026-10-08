@@ -384,10 +384,11 @@ def render_portfolio_tab(user_id, cash, init_cash):
         total_eval += portfolio_df['평가금액'].sum()
         
     cum_return = ((total_eval - init_cash) / init_cash) * 100
-    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
     col_p1.metric("총 평가 자산", f"{total_eval:,.0f} 원")
     col_p2.metric("예수금 (현금)", f"{cash:,.0f} 원")
-    col_p3.metric("누적 수익률", f"{cum_return:+.2f} %")
+    col_p3.metric("평가손익",f"{buy_price:,.0f} 원")
+    col_p4.metric("누적 수익률", f"{cum_return:+.2f} %")
 
     st.divider()
 
