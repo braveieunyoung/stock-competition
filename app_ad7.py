@@ -934,7 +934,7 @@ else:
         # TAB 2: 매수하기
         # =========================================================
         with tab2:
-            col_cat, col_select = st.columns([1, 1.5])
+            col_cat, col_select, col_info1 = st.columns([1, 1.5, 1])
             with col_cat:
                 selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
             with col_select:
@@ -947,7 +947,7 @@ else:
             df_hist = get_stock_history(symbol)
 
             # 2. 상단 metric 표시 (전일 대비 등락폭 포함)
-            col_info1, col_info2 = st.columns(2)
+            #col_info1, col_info2 = st.columns(2)
             with col_info1:
                 if not df_hist.empty and len(df_hist) >= 2:
                     prev_close = float(df_hist['Close'].iloc[-2])
@@ -962,8 +962,8 @@ else:
                 else:
                     st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
 
-            with col_info2:
-                st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
+            #with col_info2:
+                #st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
 
             # 3. 차트 및 AI 보조지표 리포트 레이아웃
             left_col, right_col = st.columns([1.3, 1])
