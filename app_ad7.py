@@ -716,7 +716,6 @@ else:
         render_admin_dashboard()
 
     else:
-        # [개선 1] 증시 지수/환율 정보를 사이드바에 콤팩트하게 노출
         with st.sidebar:
             st.subheader("🌐 주요 증시 & 환율")
             indices_data = get_market_indices()
@@ -794,12 +793,10 @@ else:
         # TAB 2: 주식 주문 (매수 / 매도 서브 탭 분리)
         # =========================================================
         with tab2:
-            # [개선 3] 매수/매도를 서브 탭으로 분리하여 스크롤 해제
             order_subtab1, order_subtab2 = st.tabs(["🛒 매수하기", "💰 매도하기"])
 
             # --- SUB TAB 1: 매수하기 ---
             with order_subtab1:
-                # [개선 2] 카테고리별 초보자용 인기주 선택
                 col_cat, col_select = st.columns([1, 1.5])
                 with col_cat:
                     selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
@@ -835,9 +832,19 @@ else:
                             fig_line.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
                             st.plotly_chart(fig_line, width="stretch")
 
+                    # [수정 1] AI 분석 리포트 전체 내용 출력
                     analysis_tips = analyze_stock_indicators(df_hist)
                     if analysis_tips:
-                        st.info(f"💡 **AI 분석 요약**: {analysis_tips[3][1]}")
+                        st.markdown("### 💡 AI 보조지표 종합 분석")
+                        for tip_type, tip_text in analysis_tips:
+                            if tip_type == "success":
+                                st.success(tip_text)
+                            elif tip_type == "warning":
+                                st.warning(tip_text)
+                            elif tip_type == "info":
+                                st.info(tip_text)
+                            else:
+                                st.caption(tip_text)
 
                 max_buy_qty = int(cash // current_price) if current_price > 0 else 0
                 buy_key = f"buy_input_{symbol}"
@@ -890,36 +897,56 @@ else:
                                 st.error("예수금이 부족합니다!")
 
             # --- SUB TAB 2: 매도하기 ---
+            # [수정 2] 보유 종목 목록을 데이터프레임으로 출력 후 매도 주문 입력
             with order_subtab2:
                 st.subheader("💰 보유 주식 매도")
 
                 if not portfolio_df.empty:
-                    # 보유 종목 드롭다운 선택
+                    st.markdown("#### 📋 현재 보유 주식 목록")
+                    
+                    sell_display_df = portfolio_df[['stock_name', 'symbol', 'quantity', 'buy_price', '현재가', '평가금액', '평가손익', '수익률(%)']].copy()
+                    sell_display_df.columns = ['종목명', '종목코드', '보유수량', '평균매수가', '현재가', '평가금액', '평가손익', '수익률(%)']
+
+                    st.dataframe(
+                        sell_display_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "보유수량": st.column_config.NumberColumn(format="%,d 주"),
+                            "평균매수가": st.column_config.NumberColumn(format="%,d 원"),
+                            "현재가": st.column_config.NumberColumn(format="%,d 원"),
+                            "평가금액": st.column_config.NumberColumn(format="%,d 원"),
+                            "평가손익": st.column_config.NumberColumn(format="%,d 원"),
+                            "수익률(%)": st.column_config.NumberColumn(format="%.2f%%")
+                        }
+                    )
+
+                    st.divider()
+
+                    # 매도 종목 선택 및 실행
                     sell_stock_list = {f"{row['stock_name']} ({row['quantity']}주 보유)": row['symbol'] for _, row in portfolio_df.iterrows()}
                     selected_sell_label = st.selectbox("매도할 보유 종목 선택", list(sell_stock_list.keys()))
                     sell_symbol = sell_stock_list[selected_sell_label]
 
-                    # 선택한 보유 주식 정보 가져오기
                     target_row = portfolio_df[portfolio_df['symbol'] == sell_symbol].iloc[0]
                     p_name = target_row['stock_name']
                     p_qty = int(target_row['quantity'])
                     p_buy_price = float(target_row['buy_price'])
                     p_curr_price = get_current_price(sell_symbol)
-                    p_eval_price = p_qty * p_curr_price
                     p_return = ((p_curr_price - p_buy_price) / p_buy_price) * 100 if p_buy_price > 0 else 0
 
                     col_s1, col_s2 = st.columns([1.2, 1])
 
                     with col_s1:
                         with st.container(border=True):
-                            st.markdown(f"#### 📌 **{p_name}** 보유 현황")
+                            st.markdown(f"#### 📌 **{p_name}** 매도 대상 정보")
                             m1, m2, m3 = st.columns(3)
                             m1.metric("보유 수량", f"{p_qty:,} 주")
                             m2.metric("평균 매수가", f"{int(round(p_buy_price)):,} 원")
                             m3.metric("현재가", f"{int(round(p_curr_price)):,} 원")
                             
                             return_color = "red" if p_return > 0 else "blue" if p_return < 0 else "gray"
-                            st.markdown(f"수익률: :{return_color}[**{'+' if p_return > 0 else ''}{p_return:.2f}%**]")
+                            st.markdown(f"예상 수익률: :{return_color}[**{'+' if p_return > 0 else ''}{p_return:.2f}%**]")
 
                     with col_s2:
                         with st.container(border=True):
