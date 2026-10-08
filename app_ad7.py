@@ -949,9 +949,7 @@ else:
             current_price = get_current_price(symbol)
         
             with col_price:
-                
-                st.metric(label="", value=f"{selected_stock_name}")
-                st.metric(label="", value=f"현재가: {current_price:,.0f} 원")
+                st.metric(label="", value=f"현재가:    {current_price:,.0f} 원")
 
             left_col, right_col = st.columns([2, 1])
 
