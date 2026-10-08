@@ -320,19 +320,19 @@ def analyze_stock_indicators(df):
     # 4. 종합 판단
     if signal_score >= 1:
         overall = {
-            "title": "⚙️ 분석 요약: 긍정적 (매수 관심)",
+            "title": " 분석 요약: 긍정적 (매수 관심)",
             "badge": "success",
             "desc": "보조지표 종합 결과 상승 전환 가능성이 높거나 저점 매수 기회로 해석됩니다."
         }
     elif signal_score <= -1:
         overall = {
-            "title": "⚙️ 분석 요약: 신중한 관망 권장",
+            "title": " 분석 요약: 신중한 관망 권장",
             "badge": "warning",
             "desc": "하락 추세 또는 과열 위험 신호가 감지되므로 매수에 유의하시기 바랍니다."
         }
     else:
         overall = {
-            "title": "⚙️ 분석 요약: 중립 (방향성 탐색 중)",
+            "title": " 분석 요약: 중립 (방향성 탐색 중)",
             "badge": "info",
             "desc": "지표별 신호가 혼재되어 있으므로 확실한 방향성이 나타날 때까지 관망하세요."
         }
@@ -392,7 +392,7 @@ def render_portfolio_tab(user_id, cash, init_cash):
 
     st.divider()
 
-    st.subheader("📋 내 보유 종목 리스트")
+    st.subheader("내 보유 종목 리스트")
     if not portfolio_df.empty:
         display_df = portfolio_df[['stock_name', 'symbol', 'quantity', 'buy_price', '현재가', '평가금액', '평가손익', '수익률(%)']].copy()
         display_df.columns = ['종목명', '종목코드', '보유수량', '평균매수가', '현재가', '평가금액', '평가손익', '수익률(%)']
@@ -815,7 +815,7 @@ def render_admin_dashboard():
 # 4. 로그인 및 인증 로직 (라우팅)
 # ---------------------------------------------------------
 if st.session_state.get('user') is None:
-    st.title("📈 모의 주식 투자")
+    st.title("모의 주식 투자")
     st.subheader("로그인하여 주식 투자에 참여하세요!")
 
     col1, col2 = st.columns(2)
@@ -1094,7 +1094,7 @@ else:
                                 "매도 수량 (주)", 
                                 min_value=1, 
                                 max_value=p_qty, 
-                                value=p_qty, 
+                                value=1, 
                                 step=1, 
                                 key=f"direct_sell_qty_{p_symbol}_{idx}"
                             )
