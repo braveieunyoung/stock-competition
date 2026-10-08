@@ -7,7 +7,7 @@ import requests                   # 웹 서버 HTTP 요청용 라이브러리
 from bs4 import BeautifulSoup     # HTML 웹 페이지 파싱용 라이브러리
 from datetime import datetime     # 날짜 및 시간 처리용 라이브러리
 import yfinance as yf             # 야후 파이낸스 주식 데이터 수집용 라이브러리
-import finance_datareader as fdr  # 한국거래소(KRX) 전체 상장 종목 수집용
+import FinanceDataReader as fdr  # 한국거래소(KRX) 전체 상장 종목 수집용
 import plotly.graph_objects as go # Plotly 캔들차트 생성용
 import plotly.express as px       # Plotly 선 그래프 생성용
 from sqlalchemy import create_engine, text # PostgreSQL DB 연결 및 SQL 실행용
