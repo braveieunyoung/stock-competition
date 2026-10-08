@@ -814,66 +814,70 @@ def render_admin_dashboard():
 # 4. 로그인 및 인증 로직 (라우팅)
 # ---------------------------------------------------------
 if st.session_state.get('user') is None:
-    st.title("모의 주식 투자")
-    st.subheader("로그인하여 주식 투자에 참여하세요!")
+    empty_left, center_content, empty_right = st.columns([1, 2, 1])
 
-    col1, col2 = st.columns(2)
-    with col1:
-        student_id = st.text_input("학번", max_chars=10)
-        name = st.text_input("이름")
-        password = st.text_input("비밀번호", type="password")
-        login_button = st.button("로그인", type="primary")
+    with center_content:
+        st.title("모의 주식 투자")
+        st.title("모의 주식 투자")
+        st.subheader("로그인하여 주식 투자에 참여하세요!")
 
-    if login_button:
-        s_id = student_id.strip()
-        s_name = name.strip()
-        s_pw = password.strip()
-
-        if s_id.lower() == "admin":
-            with engine.connect() as conn:
-                res = conn.execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
-                admin_pw = res[0] if res else ""
-
-            if s_pw == admin_pw:
-                st.session_state['user'] = {"student_id": "admin", "name": "관리자"}
-                st.rerun()
-            else:
-                st.error("관리자 비밀번호가 올바르지 않습니다.")
-
-        else:
-            if not s_id or not s_name or not s_pw:
-                st.warning("학번, 이름, 비밀번호를 모두 입력해 주세요.")
-            else:
+        col1, col2 = st.columns(2)
+        with col1:
+            student_id = st.text_input("학번", max_chars=10)
+            name = st.text_input("이름")
+            password = st.text_input("비밀번호", type="password")
+            login_button = st.button("로그인", type="primary")
+    
+        if login_button:
+            s_id = student_id.strip()
+            s_name = name.strip()
+            s_pw = password.strip()
+    
+            if s_id.lower() == "admin":
                 with engine.connect() as conn:
-                    user_row = conn.execute(
-                        text("SELECT name, password, is_registered FROM users WHERE student_id = :s_id"),
-                        {"s_id": s_id}
-                    ).fetchone()
-
-                if not user_row:
-                    st.error("❌ 등록되지 않은 학번입니다. 선생님(관리자)에게 명단 등록을 요청하세요.")
+                    res = conn.execute(text("SELECT password FROM users WHERE student_id = 'admin'")).fetchone()
+                    admin_pw = res[0] if res else ""
+    
+                if s_pw == admin_pw:
+                    st.session_state['user'] = {"student_id": "admin", "name": "관리자"}
+                    st.rerun()
                 else:
-                    db_name, db_pw, is_reg = user_row[0], user_row[1], user_row[2]
-
-                    if db_name != s_name:
-                        st.error("학번과 이름이 일치하지 않습니다!")
-
-                    elif is_reg == 0:
-                        with engine.begin() as conn:
-                            conn.execute(
-                                text("UPDATE users SET password = :pw, is_registered = 1 WHERE student_id = :s_id"),
-                                {"pw": s_pw, "s_id": s_id}
-                            )
-                        st.success("🎉 최초 로그인 완료! 입력하신 비밀번호로 설정되었습니다.")
-                        st.session_state['user'] = {"student_id": s_id, "name": db_name}
-                        st.rerun()
-
+                    st.error("관리자 비밀번호가 올바르지 않습니다.")
+    
+            else:
+                if not s_id or not s_name or not s_pw:
+                    st.warning("학번, 이름, 비밀번호를 모두 입력해 주세요.")
+                else:
+                    with engine.connect() as conn:
+                        user_row = conn.execute(
+                            text("SELECT name, password, is_registered FROM users WHERE student_id = :s_id"),
+                            {"s_id": s_id}
+                        ).fetchone()
+    
+                    if not user_row:
+                        st.error("❌ 등록되지 않은 학번입니다. 선생님(관리자)에게 명단 등록을 요청하세요.")
                     else:
-                        if db_pw == s_pw:
+                        db_name, db_pw, is_reg = user_row[0], user_row[1], user_row[2]
+    
+                        if db_name != s_name:
+                            st.error("학번과 이름이 일치하지 않습니다!")
+    
+                        elif is_reg == 0:
+                            with engine.begin() as conn:
+                                conn.execute(
+                                    text("UPDATE users SET password = :pw, is_registered = 1 WHERE student_id = :s_id"),
+                                    {"pw": s_pw, "s_id": s_id}
+                                )
+                            st.success("🎉 최초 로그인 완료! 입력하신 비밀번호로 설정되었습니다.")
                             st.session_state['user'] = {"student_id": s_id, "name": db_name}
                             st.rerun()
+    
                         else:
-                            st.error("비밀번호가 올바르지 않습니다.")
+                            if db_pw == s_pw:
+                                st.session_state['user'] = {"student_id": s_id, "name": db_name}
+                                st.rerun()
+                            else:
+                                st.error("비밀번호가 올바르지 않습니다.")
 
 
 # ---------------------------------------------------------
