@@ -932,29 +932,27 @@ else:
 
         # =========================================================
         # TAB 2: 매수하기
-        # ========================================================= 
-
+        # =========================================================
         with tab2:
-            # 3개 컬럼 생성
-            col_cat, col_select, col_price = st.columns(3)
-            
+            col_cat, col_select = st.columns([1, 1.5])
             with col_cat:
                 selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
-            
             with col_select:
                 category_stocks = POPULAR_STOCKS[selected_category]
                 selected_stock_name = st.selectbox("종목 선택", list(category_stocks.keys()))
                 symbol = category_stocks[selected_stock_name]
-        
+
+            # 1. 주가 데이터 및 현재가 조회 (변수 먼저 정의)
             current_price = get_current_price(symbol)
-        
-            with col_price:
-                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-                # 과거 데이터(df_hist)에서 전일 종가를 추출하여 변동폭 계산
+            df_hist = get_stock_history(symbol)
+
+            # 2. 상단 metric 표시 (전일 대비 등락폭 포함)
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
                 if not df_hist.empty and len(df_hist) >= 2:
                     prev_close = float(df_hist['Close'].iloc[-2])
                     price_diff = current_price - prev_close
-                    price_pct = (price_diff / prev_close) * 100
+                    price_pct = (price_diff / prev_close) * 100 if prev_close > 0 else 0
                     
                     st.metric(
                         label=f"{selected_stock_name} 현재가", 
@@ -963,14 +961,16 @@ else:
                     )
                 else:
                     st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
-              
 
-            left_col, right_col = st.columns([2, 1])
+            with col_info2:
+                st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
+
+            # 3. 차트 및 AI 보조지표 리포트 레이아웃
+            left_col, right_col = st.columns([1.3, 1])
 
             with left_col:
-                df_hist = get_stock_history(symbol)
                 if not df_hist.empty:
-                    chart_tab1, chart_tab2 = st.tabs([" 📕 캔들 차트", "📗 선 차트"])
+                    chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
                     with chart_tab1:
                         fig_candle = go.Figure(data=[go.Candlestick(
                             x=df_hist['Date'], open=df_hist['Open'], high=df_hist['High'],
@@ -985,19 +985,19 @@ else:
                         fig_line.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
                         st.plotly_chart(fig_line, width="stretch")
 
-                # 지표 3개 가로 배치 (3 컬럼) + 아래쪽 AI 종합 판단
+                # 지표 3개 가로 배치 (3 컬럼) + 아래쪽 보조지표 종합 시그널
                 analysis_res = analyze_stock_indicators(df_hist)
                 if analysis_res:
-                    st.markdown("### 📋 기술적 보조지표 리포트")
+                    st.markdown("### 📊 기술적 보조지표 리포트")
                     
-                    # 1. 보조지표 3개 가로 배치 (3 Columns)
+                    # 1. 보조지표 3개 가로 배치
                     c1, c2, c3 = st.columns(3)
                     cols = [c1, c2, c3]
                     
                     for idx, item in enumerate(analysis_res["items"]):
                         with cols[idx]:
                             with st.container(border=True):
-                                st.markdown(f"{item['name']}")
+                                st.markdown(f"**{item['name']}**")
                                 if item['badge'] == "success":
                                     st.success(f"● {item['status']}")
                                 elif item['badge'] == "warning":
@@ -1008,7 +1008,7 @@ else:
                                     st.caption(f"● {item['status']}")
                                 st.write(item['desc'])
 
-                    # 2. 아래쪽에 배치되는 AI 종합 판단
+                    # 2. 보조지표 종합 시그널
                     overall = analysis_res["overall"]
                     if overall['badge'] == "success":
                         st.success(f"**{overall['title']}**\n\n{overall['desc']}")
