@@ -1090,7 +1090,7 @@ else:
 
                     with st.container(border=True):
                         # 종목 카드 상단 헤더 및 수치 현황
-                        col_card_info, col_card_order = st.columns([1.5, 1])
+                        col_card_info, col_card_order = st.columns([3, 1])
 
                         with col_card_info:
                             st.markdown(f"### **{p_name}** `({p_symbol})`")
