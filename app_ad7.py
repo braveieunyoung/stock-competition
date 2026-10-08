@@ -503,7 +503,7 @@ st.markdown("""
         [data-testid="stMetricValue"] { font-size: 24px !important; }
     
         div[data-testid="stButton"] > button {
-            background-color: #4A5568 !important;
+            background-color: #d8dee8 !important;
             color: white !important;
             font-size: 19px !important;
             font-weight: bold !important;
