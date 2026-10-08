@@ -949,8 +949,8 @@ else:
             current_price = get_current_price(symbol)
         
             with col_price:
-                # selectbox의 라벨 높이(약 28px)만큼 여백을 주어 높이를 완벽히 맞춤
-                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                # selectbox의 라벨 높이(약 22px)만큼 여백을 주어 높이를 완벽히 맞춤
+                st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
                 st.metric(label="", value=f"{selected_stock_name} {current_price:,.0f} 원")
 
             left_col, right_col = st.columns([2, 1])
@@ -958,7 +958,7 @@ else:
             with left_col:
                 df_hist = get_stock_history(symbol)
                 if not df_hist.empty:
-                    chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
+                    chart_tab1, chart_tab2 = st.tabs([" 🕯 캔들 차트", "📈 선 차트"])
                     with chart_tab1:
                         fig_candle = go.Figure(data=[go.Candlestick(
                             x=df_hist['Date'], open=df_hist['Open'], high=df_hist['High'],
