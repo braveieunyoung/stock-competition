@@ -320,19 +320,19 @@ def analyze_stock_indicators(df):
     # 4. 종합 판단
     if signal_score >= 1:
         overall = {
-            "title": "⚙️ 기술적 분석 요약: 긍정적 (매수 관심)",
+            "title": "⚙️ 분석 요약: 긍정적 (매수 관심)",
             "badge": "success",
             "desc": "보조지표 종합 결과 상승 전환 가능성이 높거나 저점 매수 기회로 해석됩니다."
         }
     elif signal_score <= -1:
         overall = {
-            "title": "⚙️ 기술적 분석 요약: 신중한 관망 권장",
+            "title": "⚙️ 분석 요약: 신중한 관망 권장",
             "badge": "warning",
             "desc": "하락 추세 또는 과열 위험 신호가 감지되므로 매수에 유의하시기 바랍니다."
         }
     else:
         overall = {
-            "title": "⚙️ 기술적 분석 요약: 중립 (방향성 탐색 중)",
+            "title": "⚙️ 분석 요약: 중립 (방향성 탐색 중)",
             "badge": "info",
             "desc": "지표별 신호가 혼재되어 있으므로 확실한 방향성이 나타날 때까지 관망하세요."
         }
@@ -362,7 +362,7 @@ def render_sidebar_indices():
 # ---------------------------------------------------------
 @st.fragment(run_every=20)
 def render_portfolio_tab(user_id, cash, init_cash):
-    st.subheader("(●'◡'●) 내 보유 자산 현황")
+    st.subheader("내 보유 자산 현황")
        
     portfolio_df = pd.read_sql(
         text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), 
