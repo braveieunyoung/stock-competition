@@ -421,9 +421,9 @@ def render_portfolio_tab(user_id, cash, init_cash):
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
        
-    col_btn, _ = st.columns([1, 4])
+    _, col_btn = st.columns([4, 1])
     with col_btn:
-        if st.button("🔄 새로고침", key="student_rank_refresh"): 
+        if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
             st.rerun()
 
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
