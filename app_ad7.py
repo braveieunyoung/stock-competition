@@ -949,8 +949,7 @@ else:
             current_price = get_current_price(symbol)
         
             with col_price:
-                # selectbox의 라벨 높이(약 22px)만큼 여백을 주어 높이를 완벽히 맞춤
-                st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
+                
                 st.metric(label="", value=f"{selected_stock_name}")
                 st.metric(label="", value=f"현재가: {current_price:,.0f} 원")
 
