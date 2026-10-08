@@ -35,9 +35,9 @@ def get_db_engine():
 engine = get_db_engine()
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=10, show_spinner=False)
 def get_exchange_rate():
-    """실시간 달러/원(USD/KRW) 환율을 가져오는 함수 (실패 시 기본값 1350.0원 반환)"""
+    """실시간 달러/원(USD/KRW) 환율을 가져오는 함수 (10초 캐싱)"""
     try:
         ticker = yf.Ticker("USDKRW=X")
         rate = ticker.fast_info.get('lastPrice', None)
@@ -52,9 +52,9 @@ def get_exchange_rate():
     return 1350.0
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=10, show_spinner=False)
 def get_market_indices():
-    """주요 시장 지수(코스피, 코스닥, S&P 500) 및 환율 정보를 실시간으로 요약 반환하는 함수"""
+    """주요 시장 지수 및 환율 정보를 실시간 요약 반환하는 함수 (10초 캐싱)"""
     indices = {
         "코스피": "^KS11",
         "코스닥": "^KQ11",
@@ -117,9 +117,9 @@ POPULAR_STOCKS = {
 }
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=10, show_spinner=False)
 def get_current_price(symbol):
-    """주식 종목 심볼을 받아 현재가를 원화(KRW) 기준으로 가져오는 함수 (30초 캐싱)"""
+    """주식 종목 심볼을 받아 현재가를 원화(KRW) 기준으로 가져오는 함수 (10초 캐싱)"""
     clean_symbol = symbol.replace('.KS', '').replace('.KQ', '').strip()
     
     # 1. 국내 주식
@@ -177,7 +177,7 @@ def get_current_price(symbol):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_stock_history(symbol):
-    """최근 3개월간의 주가 과거 데이터를 가져오는 함수"""
+    """최근 3개월간의 주가 과거 데이터를 가져오는 함수 (300초 캐싱)"""
     try:
         ticker = yf.Ticker(symbol)
         df = ticker.history(period="3mo")
@@ -316,6 +316,131 @@ def analyze_stock_indicators(df):
 
 
 # ---------------------------------------------------------
+# FRAGMENT 1: 사이드바 증시 지수 (15초 자동 부분 갱신)
+# ---------------------------------------------------------
+@st.fragment(run_every=15)
+def render_sidebar_indices():
+    st.subheader("🌐 주요 증시 & 환율")
+    st.caption("⚡ 지수가 15초 단위로 부분 갱신됩니다.")
+    
+    indices_data = get_market_indices()
+    if indices_data:
+        for idx_name, val_tuple in indices_data.items():
+            val, chg, pct = val_tuple
+            if idx_name == "USD/KRW":
+                st.metric(label=idx_name, value=f"{val:,.1f} 원")
+            else:
+                st.metric(label=idx_name, value=f"{val:,.2f}", delta=f"{chg:+.2f} ({pct:+.2f}%)")
+
+
+# ---------------------------------------------------------
+# FRAGMENT 2: 내 포트폴리오 (20초 자동 부분 갱신)
+# ---------------------------------------------------------
+@st.fragment(run_every=20)
+def render_portfolio_tab(user_id, cash, init_cash):
+    st.subheader("💼 내 보유 자산 현황")
+    st.caption("⚡ 20초 주기로 내 주식 평가금액이 실시간 업데이트됩니다.")
+    
+    portfolio_df = pd.read_sql(
+        text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), 
+        engine, 
+        params={"s_id": user_id}
+    )
+    
+    total_eval = cash
+
+    if not portfolio_df.empty:
+        portfolio_df['현재가'] = portfolio_df['symbol'].apply(get_current_price)
+        portfolio_df['평가금액'] = portfolio_df['quantity'] * portfolio_df['현재가']
+        portfolio_df['평가손익'] = portfolio_df['평가금액'] - (portfolio_df['quantity'] * portfolio_df['buy_price'])
+        portfolio_df['수익률(%)'] = (portfolio_df['평가손익'] / (portfolio_df['quantity'] * portfolio_df['buy_price'])) * 100
+        
+        total_eval += portfolio_df['평가금액'].sum()
+        
+    cum_return = ((total_eval - init_cash) / init_cash) * 100
+    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1.metric("총 평가 자산", f"{total_eval:,.0f} 원")
+    col_p2.metric("예수금 (현금)", f"{cash:,.0f} 원")
+    col_p3.metric("누적 수익률", f"{cum_return:+.2f} %")
+
+    st.divider()
+
+    st.subheader("📋 내 보유 종목 리스트")
+    if not portfolio_df.empty:
+        display_df = portfolio_df[['stock_name', 'symbol', 'quantity', 'buy_price', '현재가', '평가금액', '평가손익', '수익률(%)']].copy()
+        display_df.columns = ['종목명', '종목코드', '보유수량', '평균매수가', '현재가', '평가금액', '평가손익', '수익률(%)']
+
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "보유수량": st.column_config.NumberColumn(format="%,d 주"),
+                "평균매수가": st.column_config.NumberColumn(format="%,d 원"),
+                "현재가": st.column_config.NumberColumn(format="%,d 원"),
+                "평가금액": st.column_config.NumberColumn(format="%,d 원"),
+                "평가손익": st.column_config.NumberColumn(format="%,d 원"),
+                "수익률(%)": st.column_config.NumberColumn(format="%.2f%%")
+            }
+        )
+    else:
+        st.info("현재 보유 중인 주식이 없습니다.")
+
+
+# ---------------------------------------------------------
+# FRAGMENT 3: 실시간 랭킹 (20초 자동 부분 갱신)
+# ---------------------------------------------------------
+@st.fragment(run_every=20)
+def render_leaderboard_tab():
+    st.subheader("🏆 전체 참가자 실시간 랭킹")
+    st.caption("⚡ 전체 참가자의 평가 자산 및 수익률이 20초 단위로 부드럽게 실시간 갱신됩니다.")
+    
+    col_btn, _ = st.columns([1, 4])
+    with col_btn:
+        if st.button("🔄 수동 새로고침", key="student_rank_refresh"): 
+            st.rerun()
+
+    all_users = pd.read_sql(
+        text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
+        engine
+    )
+    leaderboard = []
+    for _, u in all_users.iterrows():
+        u_id, u_name = u['student_id'], u['name']
+        u_cash = float(u['cash'])
+        u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
+        
+        u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
+        u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
+        u_total = u_cash + u_stock_eval
+        u_return = ((u_total - u_init_cash) / u_init_cash) * 100
+        
+        leaderboard.append({
+            "학번": u_id, 
+            "이름": u_name,
+            "총 자산 (원)": round(u_total),
+            "수익률 (%)": round(u_return, 2)
+        })
+
+    if leaderboard:
+        lb_df = pd.DataFrame(leaderboard).sort_values(by=["수익률 (%)", "총 자산 (원)"], ascending=[False, False]).reset_index(drop=True)
+        lb_df.index += 1
+
+        st.dataframe(
+            lb_df, 
+            use_container_width=True,
+            column_config={
+                "학번": st.column_config.TextColumn("학번"),  
+                "이름": st.column_config.TextColumn("이름"),  
+                "총 자산 (원)": st.column_config.NumberColumn("총 자산 (원)", format="%,d"),
+                "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
+            }
+        )
+    else:
+        st.info("참가자 데이터가 없습니다.")
+
+
+# ---------------------------------------------------------
 # 2. 페이지 기본 설정 및 Custom CSS 적용
 # ---------------------------------------------------------
 st.set_page_config(page_title="모의주식 투자", layout="wide")
@@ -364,67 +489,14 @@ def render_admin_dashboard():
 
     # TAB 1: 랭킹 및 데이터 다운로드 + 개별 학생 포트폴리오 상세 조회
     with tab1:
-        st.subheader("🏆 전체 참가자 실시간 데이터")
-        if st.button("🔄 랭킹 새로고침", key="admin_rank_refresh"):
-            st.rerun()
-        
-        all_users = pd.read_sql(
-            text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
-            engine
-        )
-        
-        admin_leaderboard = []
-        for _, u in all_users.iterrows():
-            u_id, u_name = u['student_id'], u['name']
-            u_cash = float(u['cash'])
-            u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
-            
-            u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
-            u_stock_eval = 0
-            if not u_port.empty:
-                for _, row in u_port.iterrows():
-                    p = get_current_price(row['symbol'])
-                    u_stock_eval += p * int(row['quantity'])
-                
-            u_total_assets = u_cash + u_stock_eval
-            u_return = ((u_total_assets - u_init_cash) / u_init_cash) * 100
-            
-            admin_leaderboard.append({
-                "학번": u_id,
-                "이름": u_name,
-                "보유 예수금 (원)": round(u_cash),
-                "총 자산 (원)": round(u_total_assets),
-                "수익률 (%)": round(u_return, 2)
-            })
+        render_leaderboard_tab()
 
-        if admin_leaderboard:
-            df_admin_lb = pd.DataFrame(admin_leaderboard).sort_values(by=["수익률 (%)","총 자산 (원)"], ascending=False).reset_index(drop=True)
-            df_admin_lb.index += 1
+        st.divider()
 
-            st.dataframe(
-                df_admin_lb, 
-                use_container_width=True,
-                column_config={
-                    "학번": st.column_config.TextColumn("학번"),
-                    "이름": st.column_config.TextColumn("이름"),
-                    "보유 예수금 (원)": st.column_config.NumberColumn("보유 예수금 (원)", format="%,d"),
-                    "총 자산 (원)": st.column_config.NumberColumn("총 자산 (원)", format="%,d"),
-                    "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
-                }
-            )
-
-            csv_bytes = df_admin_lb.to_csv(index=True, encoding="utf-8-sig").encode("utf-8-sig")
-            st.download_button(
-                label="📥 랭킹 데이터 CSV 다운로드",
-                data=csv_bytes,
-                file_name=f"student_ranks_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv",
-            )
-
-            st.divider()
-
-            st.subheader("🔍 개별 학생 투자 포트폴리오 상세 조회")
-            student_list_opts = {f"{row['학번']} ({row['이름']})": row['학번'] for _, row in df_admin_lb.iterrows()}
+        st.subheader("🔍 개별 학생 투자 포트폴리오 상세 조회")
+        all_users = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
+        if not all_users.empty:
+            student_list_opts = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in all_users.iterrows()}
             selected_student_label = st.selectbox("포트폴리오를 조회할 학생 선택", list(student_list_opts.keys()))
             selected_student_id = student_list_opts[selected_student_label]
 
@@ -458,7 +530,6 @@ def render_admin_dashboard():
                 )
             else:
                 st.info(f"💡 {selected_student_label} 학생은 현재 보유 중인 주식이 없습니다 (전액 예수금 보유 중).")
-
         else:
             st.info("등록된 학생 회원이 없습니다.")
 
@@ -772,18 +843,9 @@ else:
         render_admin_dashboard()
 
     else:
-        # 주요 증시 및 환율 정보 패널
+        # 사이드바 증시 영역만 독립적으로 부분 갱신
         with st.sidebar:
-            st.subheader("🌐 주요 증시 & 환율")
-            
-            indices_data = get_market_indices()
-            if indices_data:
-                for idx_name, val_tuple in indices_data.items():
-                    val, chg, pct = val_tuple
-                    if idx_name == "USD/KRW":
-                        st.metric(label=idx_name, value=f"{val:,.1f} 원")
-                    else:
-                        st.metric(label=idx_name, value=f"{val:,.2f}", delta=f"{chg:+.2f} ({pct:+.2f}%)")
+            render_sidebar_indices()
 
         with engine.connect() as conn:
             user_row = conn.execute(
@@ -798,54 +860,20 @@ else:
             cash = 10000000.0
             init_cash = 10000000.0
 
-        portfolio_df = pd.read_sql(text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), engine, params={"s_id": user_id})
+        portfolio_df = pd.read_sql(
+            text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), 
+            engine, 
+            params={"s_id": user_id}
+        )
 
-        # [수정 1] 최상위 메인 탭 4개 독립 배치
+        # 최상위 메인 탭 4개 독립 배치
         tab1, tab2, tab3, tab4 = st.tabs(["💼 내 포트폴리오", "🛒 매수하기", "💰 매도하기", "🥇 실시간 랭킹"])
 
         # =========================================================
-        # TAB 1: 내 포트폴리오
+        # TAB 1: 내 포트폴리오 (Fragment 호출로 20초 주기 자동 갱신)
         # =========================================================
         with tab1:
-            st.subheader("💼 내 보유 자산 현황")
-            total_eval = cash
-
-            if not portfolio_df.empty:
-                portfolio_df['현재가'] = portfolio_df['symbol'].apply(get_current_price)
-                portfolio_df['평가금액'] = portfolio_df['quantity'] * portfolio_df['현재가']
-                portfolio_df['평가손익'] = portfolio_df['평가금액'] - (portfolio_df['quantity'] * portfolio_df['buy_price'])
-                portfolio_df['수익률(%)'] = (portfolio_df['평가손익'] / (portfolio_df['quantity'] * portfolio_df['buy_price'])) * 100
-                
-                total_eval += portfolio_df['평가금액'].sum()
-                
-            cum_return = ((total_eval - init_cash) / init_cash) * 100
-            col_p1, col_p2, col_p3 = st.columns(3)
-            col_p1.metric("총 평가 자산", f"{total_eval:,.0f} 원")
-            col_p2.metric("예수금 (현금)", f"{cash:,.0f} 원")
-            col_p3.metric("누적 수익률", f"{cum_return:+.2f} %")
-
-            st.divider()
-
-            st.subheader("📋 내 보유 종목 리스트")
-            if not portfolio_df.empty:
-                display_df = portfolio_df[['stock_name', 'symbol', 'quantity', 'buy_price', '현재가', '평가금액', '평가손익', '수익률(%)']].copy()
-                display_df.columns = ['종목명', '종목코드', '보유수량', '평균매수가', '현재가', '평가금액', '평가손익', '수익률(%)']
-
-                st.dataframe(
-                    display_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "보유수량": st.column_config.NumberColumn(format="%,d 주"),
-                        "평균매수가": st.column_config.NumberColumn(format="%,d 원"),
-                        "현재가": st.column_config.NumberColumn(format="%,d 원"),
-                        "평가금액": st.column_config.NumberColumn(format="%,d 원"),
-                        "평가손익": st.column_config.NumberColumn(format="%,d 원"),
-                        "수익률(%)": st.column_config.NumberColumn(format="%.2f%%")
-                    }
-                )
-            else:
-                st.info("현재 보유 중인 주식이 없습니다.")
+            render_portfolio_tab(user_id, cash, init_cash)
 
         # =========================================================
         # TAB 2: 매수하기
@@ -975,9 +1003,8 @@ else:
             st.subheader("💰 보유 주식 개별 매도")
 
             if not portfolio_df.empty:
-                #st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
+                st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
                 
-                # 각 보유 종목별 개별 카드 형태로 즉시 매도UI 노출
                 for idx, row in portfolio_df.iterrows():
                     p_symbol = row['symbol']
                     p_name = row['stock_name']
@@ -990,7 +1017,7 @@ else:
 
                     with st.container(border=True):
                         # 종목 카드 상단 헤더 및 수치 현황
-                        col_card_info, col_card_order = st.columns([1, 0.5])
+                        col_card_info, col_card_order = st.columns([1.5, 1])
 
                         with col_card_info:
                             st.markdown(f"### 📌 **{p_name}** `({p_symbol})`")
@@ -1004,12 +1031,12 @@ else:
                             m4.metric("수익률", f"{'+' if p_return > 0 else ''}{p_return:.2f}%", delta=f"{int(round(p_eval_diff)):,} 원")
 
                         with col_card_order:
-                            st.markdown("#### ⚡ 매도 주문 입력 ")
+                            st.markdown("#### ⚡ 매도 실행")
                             sell_qty = st.number_input(
                                 "매도 수량 (주)", 
                                 min_value=1, 
                                 max_value=p_qty, 
-                                value=1, 
+                                value=p_qty, 
                                 step=1, 
                                 key=f"direct_sell_qty_{p_symbol}_{idx}"
                             )
@@ -1043,48 +1070,7 @@ else:
                 st.info("현재 보유 중인 주식이 없어 매도할 수 없습니다.")
 
         # =========================================================
-        # TAB 4: 실시간 랭킹
+        # TAB 4: 실시간 랭킹 (Fragment 호출로 20초 주기 자동 갱신)
         # =========================================================
         with tab4:
-            st.subheader("🏆 전체 참가자 실시간 랭킹")
-            if st.button("🔄 랭킹 새로고침", key="student_rank_refresh"): 
-                st.rerun()
-
-            all_users = pd.read_sql(
-                text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
-                engine
-            )
-            leaderboard = []
-            for _, u in all_users.iterrows():
-                u_id, u_name = u['student_id'], u['name']
-                u_cash = float(u['cash'])
-                u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
-                
-                u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
-                u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
-                u_total = u_cash + u_stock_eval
-                u_return = ((u_total - u_init_cash) / u_init_cash) * 100
-                
-                leaderboard.append({
-                    "학번": u_id, 
-                    "이름": u_name,
-                    "총 자산 (원)": round(u_total),
-                    "수익률 (%)": round(u_return, 2)
-                })
-
-            if leaderboard:
-                lb_df = pd.DataFrame(leaderboard).sort_values(by=["수익률 (%)", "총 자산 (원)"], ascending=[False, False]).reset_index(drop=True)
-                lb_df.index += 1
-
-                st.dataframe(
-                    lb_df, 
-                    use_container_width=True,
-                    column_config={
-                        "학번": st.column_config.TextColumn("학번"),  
-                        "이름": st.column_config.TextColumn("이름"),  
-                        "총 자산 (원)": st.column_config.NumberColumn("총 자산 (원)", format="%,d"),
-                        "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
-                    }
-                )
-            else:
-                st.info("참가자 데이터가 없습니다.")
+            render_leaderboard_tab()
