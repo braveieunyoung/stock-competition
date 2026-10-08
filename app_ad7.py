@@ -818,7 +818,6 @@ if st.session_state.get('user') is None:
 
     with center_content:
         st.title("모의 주식 투자")
-        st.title("모의 주식 투자")
         st.subheader("로그인하여 주식 투자에 참여하세요!")
 
         col1, col2 = st.columns(2)
@@ -878,7 +877,8 @@ if st.session_state.get('user') is None:
                                 st.rerun()
                             else:
                                 st.error("비밀번호가 올바르지 않습니다.")
-
+            with col2:
+                st.image("image.png", use_column_width=True)
 
 # ---------------------------------------------------------
 # 5. 학생 메인 화면 (로그인 후)
