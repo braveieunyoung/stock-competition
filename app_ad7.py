@@ -950,12 +950,19 @@ else:
         
             with col_price:
                 st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-                # 전일 대비 변동 금액(price_diff)이나 변동률(price_pct)이 있는 경우
-                st.metric(
-                    label="현재가", 
-                    value=f"{current_price:,.0f} 원", 
-                    delta=f"{price_diff:+,.0f} 원 ({price_pct:+.2f}%)"
-                )
+                # 과거 데이터(df_hist)에서 전일 종가를 추출하여 변동폭 계산
+                if not df_hist.empty and len(df_hist) >= 2:
+                    prev_close = float(df_hist['Close'].iloc[-2])
+                    price_diff = current_price - prev_close
+                    price_pct = (price_diff / prev_close) * 100
+                    
+                    st.metric(
+                        label=f"{selected_stock_name} 현재가", 
+                        value=f"{current_price:,.0f} 원", 
+                        delta=f"{price_diff:+,.0f} 원 ({price_pct:+.2f}%)"
+                    )
+                else:
+                    st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
               
 
             left_col, right_col = st.columns([2, 1])
