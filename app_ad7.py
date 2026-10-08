@@ -421,11 +421,6 @@ def render_portfolio_tab(user_id, cash, init_cash):
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
        
-    _, col_btn = st.columns([8, 1])
-    with col_btn:
-        if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
-            st.rerun()
-
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
     all_users = pd.read_sql(
         text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
@@ -487,7 +482,11 @@ def render_leaderboard_tab():
                 "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
             }
         )
-
+        
+     _, col_btn = st.columns([8, 1])
+        with col_btn:
+            if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
+                st.rerun()
 
 # ---------------------------------------------------------
 # 2. 페이지 기본 설정 및 Custom CSS 적용
