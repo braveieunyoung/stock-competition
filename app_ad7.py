@@ -390,8 +390,8 @@ def render_portfolio_tab(user_id, cash, init_cash):
     col_p1, col_p2, col_p3, col_p4 = st.columns(4)
     col_p1.metric("총 평가 자산", f"{total_eval:,.0f} 원")
     col_p2.metric("예수금 (현금)", f"{cash:,.0f} 원")
-    col_p3.metric(label="평가손익", value=f"{total_profit_loss:,.0f} 원", delta=f"{total_profit_loss:,.0f} 원")
-    col_p4.metric(label="누적 수익률", value=f"{cum_return:+.2f} %", delta=f"{cum_return:+.2f}%")
+    col_p3.metric("평가손익", f"{total_profit_loss:,.0f} 원") 
+    col_p4.metric("누적 수익률", f"{cum_return:+.2f} %")
 
     st.divider()
 
