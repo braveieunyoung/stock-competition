@@ -977,7 +977,7 @@ else:
             if not portfolio_df.empty:
                 st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
                 
-                # [수정 2] 선택 상자 없이, 각 보유 종목별 개별 카드 형태로 즉시 매도UI 노출
+                # 각 보유 종목별 개별 카드 형태로 즉시 매도UI 노출
                 for idx, row in portfolio_df.iterrows():
                     p_symbol = row['symbol']
                     p_name = row['stock_name']
@@ -990,7 +990,7 @@ else:
 
                     with st.container(border=True):
                         # 종목 카드 상단 헤더 및 수치 현황
-                        col_card_info, col_card_order = st.columns([1.5, 1])
+                        col_card_info, col_card_order = st.columns([1, 0.5])
 
                         with col_card_info:
                             st.markdown(f"### 📌 **{p_name}** `({p_symbol})`")
@@ -1004,12 +1004,12 @@ else:
                             m4.metric("수익률", f"{'+' if p_return > 0 else ''}{p_return:.2f}%", delta=f"{int(round(p_eval_diff)):,} 원")
 
                         with col_card_order:
-                            st.markdown("#### ⚡ 매도 실행")
+                            st.markdown("#### ⚡ 매도 주문 입력 ")
                             sell_qty = st.number_input(
                                 "매도 수량 (주)", 
                                 min_value=1, 
                                 max_value=p_qty, 
-                                value=p_qty, 
+                                value=1, 
                                 step=1, 
                                 key=f"direct_sell_qty_{p_symbol}_{idx}"
                             )
