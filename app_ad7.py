@@ -1022,7 +1022,7 @@ else:
                 with st.container(border=True):
                     st.markdown("### ⚡ 매수 주문 입력")
                     # 내 보유 예수금을 매수 주문 입력 박스 내부 상단으로 배치
-                    st.metric(label="내 보유 예수금", value=f"**:red{cash:,.0f}** 원")
+                    st.metric(label="내 보유 예수금", value=f"**:red[{cash:,.0f}]** 원")
                     st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
                     st.caption(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
                     if st.button("최대 수량 채우기", key="btn_max_buy", width="stretch"):
