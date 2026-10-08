@@ -975,7 +975,7 @@ else:
             st.subheader("💰 보유 주식 개별 매도")
 
             if not portfolio_df.empty:
-                st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
+                #st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
                 
                 # 각 보유 종목별 개별 카드 형태로 즉시 매도UI 노출
                 for idx, row in portfolio_df.iterrows():
