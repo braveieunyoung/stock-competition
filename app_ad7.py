@@ -951,7 +951,7 @@ else:
             with col_price:
                 # selectbox의 라벨 높이(약 22px)만큼 여백을 주어 높이를 완벽히 맞춤
                 st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
-                st.metric(label="", value=f"{selected_stock_name} 현재가:\n {current_price:,.0f} 원")
+                st.metric(label="", value=f"{selected_stock_name}             현재가: {current_price:,.0f} 원")
 
             left_col, right_col = st.columns([2, 1])
 
@@ -1015,6 +1015,7 @@ else:
                     st.markdown("### ⚡ 매수 주문 입력")
                     # 내 보유 예수금을 매수 주문 입력 박스 내부 상단으로 배치
                     st.metric(label="내 보유 예수금", value=f"{cash:,.0f} 원")
+                    st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
                     st.caption(f"최대 매수 가능 수량: **{max_buy_qty:,} 주**")
                     if st.button("최대 수량 채우기", key="btn_max_buy", width="stretch"):
                         st.session_state[buy_key] = max(1, max_buy_qty)
