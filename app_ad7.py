@@ -382,12 +382,15 @@ def render_portfolio_tab(user_id, cash, init_cash):
         portfolio_df['수익률(%)'] = (portfolio_df['평가손익'] / (portfolio_df['quantity'] * portfolio_df['buy_price'])) * 100
         
         total_eval += portfolio_df['평가금액'].sum()
+        total_profit_loss = portfolio_df['평가손익'].sum()  # <-- 총 평가손익 합계 계산
+
+    cum_return = ((total_eval - init_cash) / init_cash) * 100
         
     cum_return = ((total_eval - init_cash) / init_cash) * 100
     col_p1, col_p2, col_p3, col_p4 = st.columns(4)
     col_p1.metric("총 평가 자산", f"{total_eval:,.0f} 원")
     col_p2.metric("예수금 (현금)", f"{cash:,.0f} 원")
-    col_p3.metric("평가손익",f"{buy_price:,.0f} 원")
+    col_p3.metric("평가손익", f"{total_profit_loss:,.0f} 원")  
     col_p4.metric("누적 수익률", f"{cum_return:+.2f} %")
 
     st.divider()
