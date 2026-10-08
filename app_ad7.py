@@ -110,7 +110,7 @@ POPULAR_STOCKS = {
         "알파벳A/구글 (GOOGL)": "GOOGL",
         "아마존 (AMZN)": "AMZN"
     },
-    "📊 지수 추종 ETF": {
+    " 지수 추종 ETF": {
         "KODEX 200 (한국대표)": "069500.KS",
         "KODEX 미국S&P500": "379800.KS",
         "KODEX 미국나스닥100": "379810.KS"
@@ -485,7 +485,7 @@ def render_leaderboard_tab():
         
     _, col_btn = st.columns([8, 1])
     with col_btn:
-        if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
+        if st.button("새로고침", key="student_rank_refresh", use_container_width=True): 
             st.rerun()
 
 # ---------------------------------------------------------
