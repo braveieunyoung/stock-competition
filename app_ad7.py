@@ -950,8 +950,12 @@ else:
         
             with col_price:
                 st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-                st.metric(f"현재가: **:red[{current_price:,.0f} 원]**")
-                #st.metric(label="", value=f"현재가:**red{current_price:,.0f} 원**")
+                # 전일 대비 변동 금액(price_diff)이나 변동률(price_pct)이 있는 경우
+                st.metric(
+                    label="현재가", 
+                    value=f"{current_price:,.0f} 원", 
+                    delta=f"{price_diff:+,.0f} 원 ({price_pct:+.2f}%)"
+                )
               
 
             left_col, right_col = st.columns([2, 1])
