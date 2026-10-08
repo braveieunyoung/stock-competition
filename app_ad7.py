@@ -950,7 +950,7 @@ else:
         
             with col_price:
                 st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-                st.markdown(f"현재가: **:red[{current_price:,.0f} 원]**")
+                st.metric(f"현재가: **:red[{current_price:,.0f} 원]**")
                 #st.metric(label="", value=f"현재가:**red{current_price:,.0f} 원**")
               
 
