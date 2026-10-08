@@ -321,8 +321,7 @@ def analyze_stock_indicators(df):
 @st.fragment(run_every=15)
 def render_sidebar_indices():
     st.subheader("🌐 주요 증시 & 환율")
-    st.caption("⚡ 지수가 15초 단위로 부분 갱신됩니다.")
-    
+       
     indices_data = get_market_indices()
     if indices_data:
         for idx_name, val_tuple in indices_data.items():
@@ -339,8 +338,7 @@ def render_sidebar_indices():
 @st.fragment(run_every=20)
 def render_portfolio_tab(user_id, cash, init_cash):
     st.subheader("💼 내 보유 자산 현황")
-    st.caption("⚡ 20초 주기로 내 주식 평가금액이 실시간 업데이트됩니다.")
-    
+        
     portfolio_df = pd.read_sql(
         text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), 
         engine, 
@@ -393,11 +391,10 @@ def render_portfolio_tab(user_id, cash, init_cash):
 @st.fragment(run_every=20)
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
-    st.caption("⚡ 전체 참가자의 평가 자산 및 수익률이 20초 단위로 부드럽게 실시간 갱신됩니다.")
-    
+        
     col_btn, _ = st.columns([1, 4])
     with col_btn:
-        if st.button("🔄 수동 새로고침", key="student_rank_refresh"): 
+        if st.button("🔄 새로고침", key="student_rank_refresh"): 
             st.rerun()
 
     all_users = pd.read_sql(
