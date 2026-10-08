@@ -10,6 +10,7 @@ import yfinance as yf             # 야후 파이낸스 주식 데이터 수집�
 import plotly.graph_objects as go # Plotly 캔들차트 생성용
 import plotly.express as px       # Plotly 선 그래프 생성용
 from sqlalchemy import create_engine, text # PostgreSQL DB 연결 및 SQL 실행용
+from concurrent.futures import ThreadPoolExecutor # 시세 조회를 위한 멀티스레딩(병렬 처리) 라이브러리
 
 
 # ---------------------------------------------------------
@@ -35,9 +36,9 @@ def get_db_engine():
 engine = get_db_engine()
 
 
-@st.cache_data(ttl=10, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def get_exchange_rate():
-    """실시간 달러/원(USD/KRW) 환율을 가져오는 함수 (10초 캐싱)"""
+    """실시간 달러/원(USD/KRW) 환율을 가져오는 함수 (30초 캐싱)"""
     try:
         ticker = yf.Ticker("USDKRW=X")
         rate = ticker.fast_info.get('lastPrice', None)
@@ -52,9 +53,9 @@ def get_exchange_rate():
     return 1350.0
 
 
-@st.cache_data(ttl=10, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def get_market_indices():
-    """주요 시장 지수 및 환율 정보를 실시간 요약 반환하는 함수 (10초 캐싱)"""
+    """주요 시장 지수 및 환율 정보를 실시간 요약 반환하는 함수 (30초 캐싱)"""
     indices = {
         "코스피": "^KS11",
         "코스닥": "^KQ11",
@@ -109,7 +110,7 @@ POPULAR_STOCKS = {
         "알파벳A/구글 (GOOGL)": "GOOGL",
         "아마존 (AMZN)": "AMZN"
     },
-    " 지수 추종 ETF": {
+    "📊 지수 추종 ETF": {
         "KODEX 200 (한국대표)": "069500.KS",
         "KODEX 미국S&P500": "379800.KS",
         "KODEX 미국나스닥100": "379810.KS"
@@ -117,9 +118,9 @@ POPULAR_STOCKS = {
 }
 
 
-@st.cache_data(ttl=10, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def get_current_price(symbol):
-    """주식 종목 심볼을 받아 현재가를 원화(KRW) 기준으로 가져오는 함수 (10초 캐싱)"""
+    """주식 종목 심볼을 받아 현재가를 원화(KRW) 기준으로 가져오는 함수 (30초 캐싱)"""
     clean_symbol = symbol.replace('.KS', '').replace('.KQ', '').strip()
     is_kodaq = symbol.endswith('.KQ')
     
@@ -129,7 +130,7 @@ def get_current_price(symbol):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
         }
         
-        # 1-1. 네이버 모바일 API 시도 (코스닥은 .KQ, 코스피는 .KS/코드 시도)
+        # 1-1. 네이버 모바일 API 시도 (.KQ 및 코드 조합)
         api_symbols = [f"{clean_symbol}.KQ" if is_kodaq else clean_symbol, clean_symbol, f"{clean_symbol}.KS"]
         for target_sym in api_symbols:
             try:
@@ -168,7 +169,7 @@ def get_current_price(symbol):
         except Exception:
             pass
 
-    # 2. 해외 주식 (미국 빅테크 등)
+    # 2. 해외 주식
     else:
         try:
             ticker = yf.Ticker(symbol)
@@ -184,6 +185,19 @@ def get_current_price(symbol):
             pass
             
     return 0.0
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def get_prices_parallel(symbols):
+    """여러 종목코드의 현재가를 병렬(Multi-threading)로 동시에 가져와 딕셔너리로 반환하는 함수"""
+    unique_symbols = list(set(symbols))
+    if not unique_symbols:
+        return {}
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        prices = list(executor.map(get_current_price, unique_symbols))
+        
+    return dict(zip(unique_symbols, prices))
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -332,7 +346,8 @@ def analyze_stock_indicators(df):
 @st.fragment(run_every=15)
 def render_sidebar_indices():
     st.subheader("🌐 주요 증시 & 환율")
-       
+    st.caption("⚡ 지수가 15초 단위로 부분 갱신됩니다.")
+    
     indices_data = get_market_indices()
     if indices_data:
         for idx_name, val_tuple in indices_data.items():
@@ -344,12 +359,13 @@ def render_sidebar_indices():
 
 
 # ---------------------------------------------------------
-# FRAGMENT 2: 내 포트폴리오 
+# FRAGMENT 2: 내 포트폴리오 (20초 자동 부분 갱신)
 # ---------------------------------------------------------
-@st.fragment(run_every=60)
+@st.fragment(run_every=20)
 def render_portfolio_tab(user_id, cash, init_cash):
     st.subheader("💼 내 보유 자산 현황")
-        
+    st.caption("⚡ 20초 주기로 내 주식 평가금액이 실시간 업데이트됩니다.")
+    
     portfolio_df = pd.read_sql(
         text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), 
         engine, 
@@ -359,7 +375,11 @@ def render_portfolio_tab(user_id, cash, init_cash):
     total_eval = cash
 
     if not portfolio_df.empty:
-        portfolio_df['현재가'] = portfolio_df['symbol'].apply(get_current_price)
+        # 병렬 시세 조회 적용
+        unique_symbols = portfolio_df['symbol'].unique().tolist()
+        price_map = get_prices_parallel(unique_symbols)
+        
+        portfolio_df['현재가'] = portfolio_df['symbol'].map(lambda sym: price_map.get(sym, 0.0))
         portfolio_df['평가금액'] = portfolio_df['quantity'] * portfolio_df['현재가']
         portfolio_df['평가손익'] = portfolio_df['평가금액'] - (portfolio_df['quantity'] * portfolio_df['buy_price'])
         portfolio_df['수익률(%)'] = (portfolio_df['평가손익'] / (portfolio_df['quantity'] * portfolio_df['buy_price'])) * 100
@@ -397,29 +417,55 @@ def render_portfolio_tab(user_id, cash, init_cash):
 
 
 # ---------------------------------------------------------
-# FRAGMENT 3: 실시간 랭킹
+# FRAGMENT 3: 실시간 랭킹 (20초 자동 부분 갱신 & 병렬 처리 적용)
 # ---------------------------------------------------------
-@st.fragment(run_every=60)
+@st.fragment(run_every=20)
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
-        
+    st.caption("⚡ 전체 참가자의 평가 자산 및 수익률이 20초 단위로 부드럽게 실시간 갱신됩니다.")
+    
     col_btn, _ = st.columns([1, 4])
     with col_btn:
-        if st.button("🔄 새로고침", key="student_rank_refresh"): 
+        if st.button("🔄 수동 새로고침", key="student_rank_refresh"): 
             st.rerun()
 
+    # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
     all_users = pd.read_sql(
         text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
         engine
     )
+    all_portfolios = pd.read_sql(
+        text("SELECT student_id, symbol, quantity FROM portfolio WHERE quantity > 0"), 
+        engine
+    )
+
+    if all_users.empty:
+        st.info("참가자 데이터가 없습니다.")
+        return
+
+    # 2. 고유 종목 코드 병렬 시세 일괄 조회
+    unique_symbols = all_portfolios['symbol'].unique().tolist()
+    price_map = get_prices_parallel(unique_symbols)
+
+    # 3. 메모리 연산으로 수익률 및 총 자산 구하기
     leaderboard = []
+    port_grouped = all_portfolios.groupby('student_id')
+
     for _, u in all_users.iterrows():
-        u_id, u_name = u['student_id'], u['name']
+        u_id = u['student_id']
+        u_name = u['name']
         u_cash = float(u['cash'])
         u_init_cash = float(u['init_cash']) if float(u['init_cash']) > 0 else 10000000.0
         
-        u_port = pd.read_sql(text("SELECT symbol, quantity FROM portfolio WHERE student_id = :student_id"), engine, params={"student_id": u_id})
-        u_stock_eval = sum(get_current_price(row['symbol']) * int(row['quantity']) for _, row in u_port.iterrows()) if not u_port.empty else 0
+        u_stock_eval = 0.0
+        if u_id in port_grouped.groups:
+            u_user_port = port_grouped.get_group(u_id)
+            for _, row in u_user_port.iterrows():
+                sym = row['symbol']
+                qty = int(row['quantity'])
+                p = price_map.get(sym, 0.0)
+                u_stock_eval += p * qty
+
         u_total = u_cash + u_stock_eval
         u_return = ((u_total - u_init_cash) / u_init_cash) * 100
         
@@ -444,8 +490,6 @@ def render_leaderboard_tab():
                 "수익률 (%)": st.column_config.NumberColumn("수익률 (%)", format="%.2f%%")
             }
         )
-    else:
-        st.info("참가자 데이터가 없습니다.")
 
 
 # ---------------------------------------------------------
@@ -515,7 +559,10 @@ def render_admin_dashboard():
             )
 
             if not selected_port.empty:
-                selected_port['현재가'] = selected_port['symbol'].apply(get_current_price)
+                unique_symbols = selected_port['symbol'].unique().tolist()
+                price_map = get_prices_parallel(unique_symbols)
+
+                selected_port['현재가'] = selected_port['symbol'].map(lambda sym: price_map.get(sym, 0.0))
                 selected_port['평가금액'] = selected_port['quantity'] * selected_port['현재가']
                 selected_port['평가손익'] = selected_port['평가금액'] - (selected_port['quantity'] * selected_port['buy_price'])
                 selected_port['수익률(%)'] = (selected_port['평가손익'] / (selected_port['quantity'] * selected_port['buy_price'])) * 100
@@ -698,8 +745,16 @@ def render_admin_dashboard():
             text("SELECT student_id, name, cash, is_registered FROM users WHERE student_id != 'admin' ORDER BY student_id ASC"), 
             engine
         )
+        all_portfolios = pd.read_sql(
+            text("SELECT student_id, symbol, quantity FROM portfolio WHERE quantity > 0"), 
+            engine
+        )
         
         if not all_users.empty:
+            unique_symbols = all_portfolios['symbol'].unique().tolist()
+            price_map = get_prices_parallel(unique_symbols)
+            port_grouped = all_portfolios.groupby('student_id')
+
             user_list = []
             for _, row in all_users.iterrows():
                 s_id = row['student_id']
@@ -707,15 +762,11 @@ def render_admin_dashboard():
                 s_cash = float(row['cash'])
                 is_reg = "등록 완료" if str(row['is_registered']) == "1" else "미등록(최초로그인 대기)"
                 
-                u_port = pd.read_sql(
-                    text("SELECT symbol, quantity FROM portfolio WHERE student_id = :s_id"), 
-                    engine, 
-                    params={"s_id": s_id}
-                )
                 stock_eval = 0.0
-                if not u_port.empty:
+                if s_id in port_grouped.groups:
+                    u_port = port_grouped.get_group(s_id)
                     for _, p_row in u_port.iterrows():
-                        stock_eval += get_current_price(p_row['symbol']) * int(p_row['quantity'])
+                        stock_eval += price_map.get(p_row['symbol'], 0.0) * int(p_row['quantity'])
                 
                 total_assets = s_cash + stock_eval
                 
@@ -1013,12 +1064,16 @@ else:
             if not portfolio_df.empty:
                 st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
                 
+                # 매도 탭 시세 일괄 병렬 처리
+                unique_symbols = portfolio_df['symbol'].unique().tolist()
+                price_map = get_prices_parallel(unique_symbols)
+
                 for idx, row in portfolio_df.iterrows():
                     p_symbol = row['symbol']
                     p_name = row['stock_name']
                     p_qty = int(row['quantity'])
                     p_buy_price = float(row['buy_price'])
-                    p_curr_price = get_current_price(p_symbol)
+                    p_curr_price = price_map.get(p_symbol, 0.0)
                     p_eval_price = p_qty * p_curr_price
                     p_eval_diff = p_eval_price - (p_qty * p_buy_price)
                     p_return = ((p_curr_price - p_buy_price) / p_buy_price) * 100 if p_buy_price > 0 else 0
@@ -1035,7 +1090,6 @@ else:
                             m2.metric("평균 매수가", f"{int(round(p_buy_price)):,} 원")
                             m3.metric("현재가", f"{int(round(p_curr_price)):,} 원")
                             
-                            return_color = "red" if p_return > 0 else "blue" if p_return < 0 else "gray"
                             m4.metric("수익률", f"{'+' if p_return > 0 else ''}{p_return:.2f}%", delta=f"{int(round(p_eval_diff)):,} 원")
 
                         with col_card_order:
