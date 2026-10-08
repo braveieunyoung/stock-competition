@@ -949,14 +949,17 @@ else:
             current_price = get_current_price(symbol)
         
             with col_price:
-                st.metric(label="", value=f"현재가:    {current_price:,.0f} 원")
+                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+                st.markdown(f"현재가: **:red[{current_price:,.0f} 원]**")
+                #st.metric(label="", value=f"현재가:**red{current_price:,.0f} 원**")
+              
 
             left_col, right_col = st.columns([2, 1])
 
             with left_col:
                 df_hist = get_stock_history(symbol)
                 if not df_hist.empty:
-                    chart_tab1, chart_tab2 = st.tabs([" 🕯 캔들 차트", "📈 선 차트"])
+                    chart_tab1, chart_tab2 = st.tabs([" 📕 캔들 차트", "📗 선 차트"])
                     with chart_tab1:
                         fig_candle = go.Figure(data=[go.Candlestick(
                             x=df_hist['Date'], open=df_hist['Open'], high=df_hist['High'],
