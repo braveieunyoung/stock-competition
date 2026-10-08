@@ -932,24 +932,28 @@ else:
 
         # =========================================================
         # TAB 2: 매수하기
-        # =========================================================
+        # ========================================================= 
+
         with tab2:
-            # 분류선택, 종목선택, 현재가를 동일한 행(3 컬럼)에 배치
+            # 3개 컬럼 생성
             col_cat, col_select, col_price = st.columns(3)
             
             with col_cat:
                 selected_category = st.selectbox("분류 선택", list(POPULAR_STOCKS.keys()))
+            
             with col_select:
                 category_stocks = POPULAR_STOCKS[selected_category]
                 selected_stock_name = st.selectbox("종목 선택", list(category_stocks.keys()))
                 symbol = category_stocks[selected_stock_name]
-
+        
             current_price = get_current_price(symbol)
-
+        
             with col_price:
-                st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
+                # selectbox의 라벨 높이(약 28px)만큼 여백을 주어 높이를 완벽히 맞춤
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                st.metric(label="", value=f"{selected_stock_name} {current_price:,.0f} 원")
 
-            left_col, right_col = st.columns([1.3, 1])
+            left_col, right_col = st.columns([2, 1])
 
             with left_col:
                 df_hist = get_stock_history(symbol)
@@ -981,7 +985,7 @@ else:
                     for idx, item in enumerate(analysis_res["items"]):
                         with cols[idx]:
                             with st.container(border=True):
-                                st.markdown(f"**{item['name']}**")
+                                st.markdown(f"{item['name']}")
                                 if item['badge'] == "success":
                                     st.success(f"● {item['status']}")
                                 elif item['badge'] == "warning":
