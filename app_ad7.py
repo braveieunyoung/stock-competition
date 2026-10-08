@@ -419,7 +419,7 @@ def render_portfolio_tab(user_id, cash, init_cash):
 # ---------------------------------------------------------
 @st.fragment(run_every=20)
 def render_leaderboard_tab():
-    st.subheader("🏆 전체 참가자 실시간 랭킹")
+    st.subheader("전체 참가자 실시간 랭킹")
        
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
     all_users = pd.read_sql(
@@ -533,7 +533,7 @@ def render_admin_dashboard():
     """관리자(admin) 계정으로 접속 시 표시되는 관리자 전용 화면"""
     st.title("⚙ 관리자 전용 대시보드")
 
-    tab1, tab2, tab3 = st.tabs(["📊 전체 랭킹", "💰 시드 머니 관리", "👥 학생 명단 & CSV 업로드"])
+    tab1, tab2, tab3 = st.tabs(["🏆 전체 랭킹", "💰 시드 머니 관리", "👥 학생 명단 & CSV 업로드"])
 
     # TAB 1: 랭킹 및 데이터 다운로드 + 개별 학생 포트폴리오 상세 조회
     with tab1:
@@ -541,7 +541,7 @@ def render_admin_dashboard():
 
         st.divider()
 
-        st.subheader("🔍 개별 학생 투자 포트폴리오 상세 조회")
+        st.subheader("개별 학생 투자 포트폴리오 상세 조회")
         all_users = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
         if not all_users.empty:
             student_list_opts = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in all_users.iterrows()}
@@ -653,7 +653,7 @@ def render_admin_dashboard():
 
                 st.write("📋 미리보기:", df_upload.head())
                 
-                if st.button("🚀 DB에 명단 일괄 등록하기", type="primary"):
+                if st.button("DB에 명단 일괄 등록하기", type="primary"):
                     added_count = 0
                     updated_count = 0
                     
@@ -887,7 +887,7 @@ else:
     # 상단 헤더
     top_col1, top_col2 = st.columns([5, 1])
     with top_col1:
-        st.title(f"🏆 {user_name} ({user_id}) 님의 대시보드")
+        st.title(f"😊 {user_name} ({user_id}) 님의 대시보드")
     with top_col2:
         st.write("")
         if st.button("로그아웃", width="stretch"):
@@ -922,7 +922,7 @@ else:
         )
 
         # 최상위 메인 탭 4개 독립 배치
-        tab1, tab2, tab3, tab4 = st.tabs(["💼 내 포트폴리오", "🛒 매수하기", "💰 매도하기", "🥇 실시간 랭킹"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 내 포트폴리오", "📉 매수하기", "📈 매도하기", "🏆 실시간 랭킹"])
 
         # =========================================================
         # TAB 1: 내 포트폴리오 
@@ -972,7 +972,7 @@ else:
                 # 지표 3개 가로 배치 (3 컬럼) + 아래쪽 AI 종합 판단
                 analysis_res = analyze_stock_indicators(df_hist)
                 if analysis_res:
-                    st.markdown("### 📊 기술적 보조지표 리포트")
+                    st.markdown("### 📋 기술적 보조지표 리포트")
                     
                     # 1. 보조지표 3개 가로 배치 (3 Columns)
                     c1, c2, c3 = st.columns(3)
@@ -1018,7 +1018,7 @@ else:
                     total_buy_price = current_price * buy_qty
                     st.markdown(f"총 결제 예정 금액: **:red[{total_buy_price:,.0f} 원]**")
 
-                    if st.button("📉 매수 주문 실행", key="btn_do_buy", type="primary", width="stretch"):
+                    if st.button(" 매수 주문 실행", key="btn_do_buy", type="primary", width="stretch"):
                         if current_price <= 0:
                             st.error("현재가를 불러올 수 없습니다.")
                         elif cash >= total_buy_price:
@@ -1055,7 +1055,7 @@ else:
         # TAB 3: 매도하기 (개별 카드/표 형태 + 바로 매도 기능)
         # =========================================================
         with tab3:
-            st.subheader("💰 보유 주식 개별 매도")
+            st.subheader("보유 주식 개별 매도")
 
             if not portfolio_df.empty:
                 st.caption("현재 보유 중인 각 종목별 수량을 지정하여 즉시 매도 주문을 실행할 수 있습니다.")
@@ -1079,7 +1079,7 @@ else:
                         col_card_info, col_card_order = st.columns([1.5, 1])
 
                         with col_card_info:
-                            st.markdown(f"### 📌 **{p_name}** `({p_symbol})`")
+                            st.markdown(f"### **{p_name}** `({p_symbol})`")
                             
                             m1, m2, m3, m4 = st.columns(4)
                             m1.metric("보유 수량", f"{p_qty:,} 주")
@@ -1101,7 +1101,7 @@ else:
                             est_sell_amount = p_curr_price * sell_qty
                             st.caption(f"예상 입금액: **{int(round(est_sell_amount)):,} 원**")
 
-                            if st.button("📈 매도 실행", key=f"btn_direct_sell_{p_symbol}_{idx}", type="primary", width="stretch"):
+                            if st.button("매도 실행", key=f"btn_direct_sell_{p_symbol}_{idx}", type="primary", width="stretch"):
                                 if p_qty >= sell_qty > 0:
                                     new_cash = cash + est_sell_amount
                                     with engine.begin() as conn:
