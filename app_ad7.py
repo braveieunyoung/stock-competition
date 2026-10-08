@@ -483,10 +483,10 @@ def render_leaderboard_tab():
             }
         )
         
-     _, col_btn = st.columns([8, 1])
-        with col_btn:
-            if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
-                st.rerun()
+    _, col_btn = st.columns([8, 1])
+    with col_btn:
+        if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
+            st.rerun()
 
 # ---------------------------------------------------------
 # 2. 페이지 기본 설정 및 Custom CSS 적용
