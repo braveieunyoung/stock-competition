@@ -421,7 +421,7 @@ def render_portfolio_tab(user_id, cash, init_cash):
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
        
-    _, col_btn = st.columns([10, 1])
+    _, col_btn = st.columns([8, 1])
     with col_btn:
         if st.button("🔄 새로고침", key="student_rank_refresh", use_container_width=True): 
             st.rerun()
