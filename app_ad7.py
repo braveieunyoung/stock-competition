@@ -776,8 +776,7 @@ else:
         # [개선] 주요 증시 및 환율 정보 패널
         with st.sidebar:
             st.subheader("🌐 주요 증시 & 환율")
-            if st.button("🔄 시세 새로고침", key="sidebar_indices_refresh"):
-                st.rerun()
+            
             indices_data = get_market_indices()
             if indices_data:
                 for idx_name, val_tuple in indices_data.items():
@@ -892,16 +891,18 @@ else:
                             fig_line.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
                             st.plotly_chart(fig_line, width="stretch")
 
-                    # [개선] 가독성을 극대화한 카드 UI 형태의 AI 기술적 분석 리포트
+                   # [개선] 지표 3개 가로 배치 (3 컬럼) + 아래쪽 AI 종합 판단
                     analysis_res = analyze_stock_indicators(df_hist)
                     if analysis_res:
                         st.markdown("### 📊 AI 기술적 보조지표 리포트")
                         
-                        # 1. 지표별 개별 분석
-                        for item in analysis_res["items"]:
-                            with st.container(border=True):
-                                c1, c2 = st.columns([1, 2])
-                                with c1:
+                        # 1. 보조지표 3개 가로 배치 (3 Columns)
+                        c1, c2, c3 = st.columns(3)
+                        cols = [c1, c2, c3]
+                        
+                        for idx, item in enumerate(analysis_res["items"]):
+                            with cols[idx]:
+                                with st.container(border=True):
                                     st.markdown(f"**{item['name']}**")
                                     if item['badge'] == "success":
                                         st.success(f"● {item['status']}")
@@ -911,17 +912,16 @@ else:
                                         st.info(f"● {item['status']}")
                                     else:
                                         st.caption(f"● {item['status']}")
-                                with c2:
                                     st.write(item['desc'])
 
-                        # 2. 종합 판단 요약
+                        # 2. 아래쪽에 배치되는 AI 종합 판단
                         overall = analysis_res["overall"]
                         if overall['badge'] == "success":
-                            st.success(f"{overall['title']}\n\n{overall['desc']}")
+                            st.success(f"**{overall['title']}**\n\n{overall['desc']}")
                         elif overall['badge'] == "warning":
-                            st.warning(f"{overall['title']}\n\n{overall['desc']}")
+                            st.warning(f"**{overall['title']}**\n\n{overall['desc']}")
                         else:
-                            st.info(f"{overall['title']}\n\n{overall['desc']}")
+                            st.info(f"**{overall['title']}**\n\n{overall['desc']}")
 
                 max_buy_qty = int(cash // current_price) if current_price > 0 else 0
                 buy_key = f"buy_input_{symbol}"
