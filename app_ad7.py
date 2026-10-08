@@ -341,13 +341,12 @@ def analyze_stock_indicators(df):
 
 
 # ---------------------------------------------------------
-# FRAGMENT 1: 사이드바 증시 지수 (15초 자동 부분 갱신)
+# FRAGMENT 1: 사이드바 증시 지수 
 # ---------------------------------------------------------
-@st.fragment(run_every=15)
+@st.fragment(run_every=20)
 def render_sidebar_indices():
     st.subheader("🌐 주요 증시 & 환율")
-    st.caption("⚡ 지수가 15초 단위로 부분 갱신됩니다.")
-    
+       
     indices_data = get_market_indices()
     if indices_data:
         for idx_name, val_tuple in indices_data.items():
@@ -359,13 +358,12 @@ def render_sidebar_indices():
 
 
 # ---------------------------------------------------------
-# FRAGMENT 2: 내 포트폴리오 (20초 자동 부분 갱신)
+# FRAGMENT 2: 내 포트폴리오 
 # ---------------------------------------------------------
 @st.fragment(run_every=20)
 def render_portfolio_tab(user_id, cash, init_cash):
     st.subheader("💼 내 보유 자산 현황")
-    st.caption("⚡ 20초 주기로 내 주식 평가금액이 실시간 업데이트됩니다.")
-    
+       
     portfolio_df = pd.read_sql(
         text("SELECT symbol, stock_name, quantity, buy_price FROM portfolio WHERE student_id = :s_id AND quantity > 0"), 
         engine, 
@@ -417,16 +415,15 @@ def render_portfolio_tab(user_id, cash, init_cash):
 
 
 # ---------------------------------------------------------
-# FRAGMENT 3: 실시간 랭킹 (20초 자동 부분 갱신 & 병렬 처리 적용)
+# FRAGMENT 3: 실시간 랭킹 
 # ---------------------------------------------------------
 @st.fragment(run_every=20)
 def render_leaderboard_tab():
     st.subheader("🏆 전체 참가자 실시간 랭킹")
-    st.caption("⚡ 전체 참가자의 평가 자산 및 수익률이 20초 단위로 부드럽게 실시간 갱신됩니다.")
-    
+       
     col_btn, _ = st.columns([1, 4])
     with col_btn:
-        if st.button("🔄 수동 새로고침", key="student_rank_refresh"): 
+        if st.button("🔄 새로고침", key="student_rank_refresh"): 
             st.rerun()
 
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
@@ -929,7 +926,7 @@ else:
         tab1, tab2, tab3, tab4 = st.tabs(["💼 내 포트폴리오", "🛒 매수하기", "💰 매도하기", "🥇 실시간 랭킹"])
 
         # =========================================================
-        # TAB 1: 내 포트폴리오 (Fragment 호출로 20초 주기 자동 갱신)
+        # TAB 1: 내 포트폴리오 
         # =========================================================
         with tab1:
             render_portfolio_tab(user_id, cash, init_cash)
@@ -1132,7 +1129,7 @@ else:
                 st.info("현재 보유 중인 주식이 없어 매도할 수 없습니다.")
 
         # =========================================================
-        # TAB 4: 실시간 랭킹 (Fragment 호출로 20초 주기 자동 갱신)
+        # TAB 4: 실시간 랭킹
         # =========================================================
         with tab4:
             render_leaderboard_tab()
