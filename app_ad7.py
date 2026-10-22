@@ -696,7 +696,7 @@ def render_admin_dashboard():
             new_student_id = st.text_input("학번 (예: 10101)").strip()
             new_name = st.text_input("이름").strip()
             new_pw = st.text_input("비밀번호 (선택사항)", type="password").strip() 
-            new_cash_input = st.number_input("시드머니 (원)", min_value=0, value=10000000, step=1000000)
+            new_cash_input = st.number_input("시드머니 (원)", min_value=0, value=0, step=1000000)
             
             is_reg = 1 if new_pw else 0
             submitted = st.form_submit_button("학생 추가", type="primary")
