@@ -372,6 +372,7 @@ def render_portfolio_tab(user_id, cash, init_cash):
     )
     
     total_eval = cash
+    total_profit_loss = 0
 
     if not portfolio_df.empty:
         # 병렬 시세 조회 적용
