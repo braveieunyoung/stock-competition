@@ -428,7 +428,7 @@ def render_leaderboard_tab():
        
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
     all_users = pd.read_sql(
-        text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
+        text("SELECT student_id, name, cash, COALESCE(init_cash, 0) as init_cash FROM users WHERE student_id != 'admin'"), 
         engine
     )
     all_portfolios = pd.read_sql(
