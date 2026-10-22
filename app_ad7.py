@@ -428,7 +428,7 @@ def render_leaderboard_tab():
        
     # 1. 단 1번의 DB 쿼리로 학생 목록 및 보유 종목 데이터 가져오기
     all_users = pd.read_sql(
-        text("SELECT student_id, name, cash, COALESCE(init_cash, 0) as init_cash FROM users WHERE student_id != 'admin'"), 
+        text("SELECT student_id, name, cash, COALESCE(init_cash, 10000000) as init_cash FROM users WHERE student_id != 'admin'"), 
         engine
     )
     all_portfolios = pd.read_sql(
@@ -668,7 +668,7 @@ def render_admin_dashboard():
                             s_name = str(row['이름']).strip()
                             s_pw = str(row['비밀번호']).strip() if pd.notna(row.get('비밀번호')) and str(row.get('비밀번호')).strip() != 'nan' else ""
                             
-                            s_cash = float(row['시드머니']) if '시드머니' in row and pd.notna(row['시드머니']) else 10000000.0
+                            s_cash = float(row['시드머니']) if '시드머니' in row and pd.notna(row['시드머니']) else 0.0
                             is_reg = 1 if s_pw else 0
 
                             res = conn.execute(text("SELECT student_id FROM users WHERE student_id = :s_id"), {"s_id": s_id}).fetchone()
@@ -787,6 +787,15 @@ def render_admin_dashboard():
         col_reset, col_del = st.columns(2)
         del_students = pd.read_sql(text("SELECT student_id, name FROM users WHERE student_id != 'admin'"), engine)
         reset_options = {f"{row['student_id']} ({row['name']})": row['student_id'] for _, row in del_students.iterrows()}
+
+        st.divider()
+        st.subheader("⚠️ 위험: 전체 데이터 초기화")
+        if st.button("🚨 모든 학생 명단 및 포트폴리오 전체 삭제", type="primary"):
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM portfolio"))
+                conn.execute(text("DELETE FROM users WHERE student_id != 'admin'"))
+            st.success("모든 학생 데이터와 포트폴리오가 완전히 삭제되었습니다.")
+            st.rerun()
             
         if reset_options:
             with col_reset:
