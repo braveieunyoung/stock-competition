@@ -895,19 +895,30 @@ else:
                 selected_stock_name = st.selectbox("종목 선택", list(category_stocks.keys()))
                 symbol = category_stocks[selected_stock_name]
 
-            # 조회 기간 선택 필터 UI
-            col_period, col_empty = st.columns([2, 2])
-            with col_period:
-                period_label = st.selectbox("조회 기간 설정", ["1개월", "3개월", "6개월", "1년", "최대(MAX)"], index=1)
-            
+            # 🛠 [수정] 1일~10년 버튼식 조회 기간 선택 UI (st.radio 수평 정렬 활용)
+            st.markdown("##### 📅 조회 기간")
+            period_options = ["1일", "5일", "1개", "3개월", "6개월", "1년", "3년", "5년", "10년"]
+            # 내부 매핑용 딕셔너리 키는 "1개"를 "1개월"로 정상 처리되도록 맞춤
             period_map = {
-                "1개월": "1mo",
+                "1일": "1d",
+                "5일": "5d",
+                "1개": "1mo",
                 "3개월": "3mo",
                 "6개월": "6mo",
                 "1년": "1y",
-                "최대(MAX)": "max"
+                "3년": "3y",
+                "5년": "5y",
+                "10년": "10y"
             }
-            yf_period = period_map[period_label]
+            # 보기 편하게 가로형 라디오 버튼 배치 (또는 st.pills 지원 버전인 경우 pills 활용 가능)
+            selected_period_label = st.radio(
+                "조회 기간 선택", 
+                ["1일", "5일", "1개월", "3개월", "6개월", "1년", "3년", "5년", "10년"], 
+                index=3, # 기본값 3개월(3mo)
+                horizontal=True, 
+                label_visibility="collapsed"
+            )
+            yf_period = period_map.get(selected_period_label, "3mo")
 
             current_price = get_current_price(symbol)
             df_hist = get_stock_history(symbol, period=yf_period)
@@ -926,14 +937,15 @@ else:
                 else:
                     st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
 
-            left_col, right_col = st.columns([3, 1])
+            left_col, right_col = st.columns([1.3, 1])
 
             with left_col:
                 if not df_hist.empty:
                     chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
                     
                     # 캔들 차트 탭 내부
-                    with chart_tab1:                  
+                    with chart_tab1:
+                        st.markdown("#### ⚙ 차트 보조지표 옵션")
                         opt_col1, opt_col2, opt_col3 = st.columns(3)
                         show_ma5 = opt_col1.checkbox("이동평균 5일선", value=True, key="cb_ma5")
                         show_ma20 = opt_col2.checkbox("이동평균 20일선", value=True, key="cb_ma20")
@@ -989,7 +1001,7 @@ else:
                         )
                         st.plotly_chart(fig_candle, use_container_width=True)
 
-                    # 선 차트 탭 내부 (보조지표 옵션 없음)
+                    # 선 차트 탭 내부
                     with chart_tab2:
                         fig_line = px.line(df_hist, x='Date', y='Close', title="")
                         fig_line.update_layout(height=360, margin=dict(l=10, r=10, t=10, b=10))
