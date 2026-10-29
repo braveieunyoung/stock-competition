@@ -933,9 +933,7 @@ else:
                     chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
                     
                     # 캔들 차트 탭 내부
-                    with chart_tab1:
-                        # 🛠 [수정 완료] 차트 보조지표 옵션은 캔들 차트 탭 내부로 이동
-                        st.markdown("#### ⚙ 차트 보조지표 옵션")
+                    with chart_tab1:                  
                         opt_col1, opt_col2, opt_col3 = st.columns(3)
                         show_ma5 = opt_col1.checkbox("이동평균 5일선", value=True, key="cb_ma5")
                         show_ma20 = opt_col2.checkbox("이동평균 20일선", value=True, key="cb_ma20")
