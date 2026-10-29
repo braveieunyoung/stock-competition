@@ -926,7 +926,7 @@ else:
                 else:
                     st.metric(label=f"{selected_stock_name} 현재가", value=f"{current_price:,.0f} 원")
 
-            left_col, right_col = st.columns([1.3, 1])
+            left_col, right_col = st.columns([3, 1])
 
             with left_col:
                 if not df_hist.empty:
