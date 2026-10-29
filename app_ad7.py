@@ -896,7 +896,7 @@ else:
                 symbol = category_stocks[selected_stock_name]
 
             # 🛠 [수정] 1일~10년 버튼식 조회 기간 선택 UI (st.radio 수평 정렬 활용)
-            st.markdown("##### 📅 조회 기간")
+            st.markdown("##### 🗓️ 조회 기간")
             period_options = ["1일", "5일", "1개", "3개월", "6개월", "1년", "3년", "5년", "10년"]
             # 내부 매핑용 딕셔너리 키는 "1개"를 "1개월"로 정상 처리되도록 맞춤
             period_map = {
@@ -941,7 +941,7 @@ else:
 
             with left_col:
                 if not df_hist.empty:
-                    chart_tab1, chart_tab2 = st.tabs(["✨ 캔들 차트", "✨ 선 차트"])
+                    chart_tab1, chart_tab2 = st.tabs(["📶 캔들 차트", "📈 선 차트"])
                     
                     # 캔들 차트 탭 내부
                     with chart_tab1:
