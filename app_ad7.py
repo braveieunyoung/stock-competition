@@ -895,7 +895,7 @@ else:
                 selected_stock_name = st.selectbox("종목 선택", list(category_stocks.keys()))
                 symbol = category_stocks[selected_stock_name]
 
-            # 🛠 [추가 기능 1] 조회 기간 선택 필터 UI 추가
+            # 조회 기간 선택 필터 UI
             col_period, col_empty = st.columns([2, 2])
             with col_period:
                 period_label = st.selectbox("조회 기간 설정", ["1개월", "3개월", "6개월", "1년", "최대(MAX)"], index=1)
@@ -930,28 +930,28 @@ else:
 
             with left_col:
                 if not df_hist.empty:
-                    # 🛠 [추가 기능 2] 차트 보조지표(MA, 볼린저밴드) 토글 설정 UI 추가
-                    st.markdown("#### ⚙ 차트 보조지표 옵션")
-                    opt_col1, opt_col2, opt_col3 = st.columns(3)
-                    show_ma5 = opt_col1.checkbox("이동평균 5일선", value=True)
-                    show_ma20 = opt_col2.checkbox("이동평균 20일선", value=True)
-                    show_bb = opt_col3.checkbox("볼린저 밴드", value=False)
-
-                    # 지표 계산용 데이터 복사본
-                    df_chart = df_hist.copy()
-                    df_chart['MA5'] = df_chart['Close'].rolling(window=5).mean()
-                    df_chart['MA20'] = df_chart['Close'].rolling(window=20).mean()
-                    
-                    std = df_chart['Close'].rolling(window=20).std()
-                    df_chart['BB_Upper'] = df_chart['MA20'] + (std * 2)
-                    df_chart['BB_Lower'] = df_chart['MA20'] - (std * 2)
-
                     chart_tab1, chart_tab2 = st.tabs(["🕯 캔들 차트", "📈 선 차트"])
                     
+                    # 캔들 차트 탭 내부
                     with chart_tab1:
+                        # 🛠 [수정 완료] 차트 보조지표 옵션은 캔들 차트 탭 내부로 이동
+                        st.markdown("#### ⚙ 차트 보조지표 옵션")
+                        opt_col1, opt_col2, opt_col3 = st.columns(3)
+                        show_ma5 = opt_col1.checkbox("이동평균 5일선", value=True, key="cb_ma5")
+                        show_ma20 = opt_col2.checkbox("이동평균 20일선", value=True, key="cb_ma20")
+                        show_bb = opt_col3.checkbox("볼린저 밴드", value=False, key="cb_bb")
+
+                        # 지표 계산용 데이터 복사본
+                        df_chart = df_hist.copy()
+                        df_chart['MA5'] = df_chart['Close'].rolling(window=5).mean()
+                        df_chart['MA20'] = df_chart['Close'].rolling(window=20).mean()
+                        
+                        std = df_chart['Close'].rolling(window=20).std()
+                        df_chart['BB_Upper'] = df_chart['MA20'] + (std * 2)
+                        df_chart['BB_Lower'] = df_chart['MA20'] - (std * 2)
+
                         fig_candle = go.Figure()
                         
-                        # 볼린저 밴드 영역 추가 (토글 켜져 있을 때)
                         if show_bb:
                             fig_candle.add_trace(go.Scatter(
                                 x=df_chart['Date'], y=df_chart['BB_Upper'],
@@ -965,21 +965,18 @@ else:
                                 hoverinfo='skip'
                             ))
 
-                        # 기본 캔들차트 추가
                         fig_candle.add_trace(go.Candlestick(
                             x=df_chart['Date'], open=df_chart['Open'], high=df_chart['High'],
                             low=df_chart['Low'], close=df_chart['Close'],
                             name="캔들", increasing_line_color='#e12343', decreasing_line_color='#1261c4'
                         ))
 
-                        # 이동평균선 5일선 추가 (토글 켜져 있을 때)
                         if show_ma5:
                             fig_candle.add_trace(go.Scatter(
                                 x=df_chart['Date'], y=df_chart['MA5'],
                                 name="MA 5", line=dict(color='orange', width=1.5)
                             ))
 
-                        # 이동평균선 20일선 추가 (토글 켜져 있을 때)
                         if show_ma20:
                             fig_candle.add_trace(go.Scatter(
                                 x=df_chart['Date'], y=df_chart['MA20'],
@@ -994,6 +991,7 @@ else:
                         )
                         st.plotly_chart(fig_candle, use_container_width=True)
 
+                    # 선 차트 탭 내부 (보조지표 옵션 없음)
                     with chart_tab2:
                         fig_line = px.line(df_hist, x='Date', y='Close', title="")
                         fig_line.update_layout(height=360, margin=dict(l=10, r=10, t=10, b=10))
