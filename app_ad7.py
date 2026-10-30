@@ -12,6 +12,7 @@ import plotly.graph_objects as go # Plotly 캔들차트 생성용
 import plotly.express as px       # Plotly 선 그래프 생성용
 from sqlalchemy import create_engine, text # PostgreSQL DB 연결 및 SQL 실행용
 from concurrent.futures import ThreadPoolExecutor # 시세 조회를 위한 멀티스레딩(병렬 처리) 라이브러리
+from sklearn.ensemble import RandomForestRegressor # 머신러닝 예측용 모델
 
 
 # ---------------------------------------------------------
@@ -340,6 +341,35 @@ def analyze_stock_indicators(df):
         }
 
     return {"items": indicators, "overall": overall}
+
+
+def predict_future_price(df):
+    """
+    RandomForest 머신러닝 모델을 활용하여 다음 거래일의 종가를 예측하는 함수
+    """
+    if len(df) < 60:
+        return None, None
+
+    df_ml = df.copy()
+    df_ml['MA5'] = df_ml['Close'].rolling(window=5).mean()
+    df_ml['MA20'] = df_ml['Close'].rolling(window=20).mean()
+    df_ml['Daily_Return'] = df_ml['Close'].pct_change()
+    df_ml['Target'] = df_ml['Close'].shift(-1)
+    
+    df_ml = df_ml.dropna()
+
+    features = ['Open', 'High', 'Low', 'Close', 'Volume', 'MA5', 'MA20', 'Daily_Return']
+    X = df_ml[features]
+    y = df_ml['Target']
+
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X, y)
+
+    latest_data = df_ml[features].iloc[-1:].values
+    predicted_price = model.predict(latest_data)[0]
+    feature_importance = dict(zip(features, model.feature_importances_))
+
+    return predicted_price, feature_importance
 
 
 # ---------------------------------------------------------
@@ -898,7 +928,6 @@ else:
             # 🛠 [수정] 1일~10년 버튼식 조회 기간 선택 UI (st.radio 수평 정렬 활용)
             st.markdown("##### 🗓️ 조회 기간")
             period_options = ["1일", "5일", "1개", "3개월", "6개월", "1년", "3년", "5년", "10년"]
-            # 내부 매핑용 딕셔너리 키는 "1개"를 "1개월"로 정상 처리되도록 맞춤
             period_map = {
                 "1일": "1d",
                 "5일": "5d",
@@ -910,7 +939,6 @@ else:
                 "5년": "5y",
                 "10년": "10y"
             }
-            # 보기 편하게 가로형 라디오 버튼 배치 (또는 st.pills 지원 버전인 경우 pills 활용 가능)
             selected_period_label = st.radio(
                 "조회 기간 선택", 
                 ["1일", "5일", "1개월", "3개월", "6개월", "1년", "3년", "5년", "10년"], 
@@ -1006,6 +1034,7 @@ else:
                         fig_line.update_layout(height=360, margin=dict(l=10, r=10, t=10, b=10))
                         st.plotly_chart(fig_line, use_container_width=True)
 
+                # 기존 보조지표 리포트
                 analysis_res = analyze_stock_indicators(df_hist)
                 if analysis_res:
                     st.markdown("### 📊 기술적 보조지표 리포트")
@@ -1033,6 +1062,47 @@ else:
                         st.warning(f"**{overall['title']}**\n\n{overall['desc']}")
                     else:
                         st.info(f"**{overall['title']}**\n\n{overall['desc']}")
+
+                # 🤖 [추가] AI 머신러닝 예측 리포트 섹션
+                st.divider()
+                st.subheader("🤖 AI 기반 다음 거래일 주가 예측 (Random Forest)")
+                
+                # 전체 기간(1년 이상) 데이터를 기반으로 넉넉히 학습시키기 위해 별도 1년치 데이터 호출
+                df_ml_source = get_stock_history(symbol, period="1y")
+                if not df_ml_source.empty and len(df_ml_source) >= 60:
+                    with st.spinner("AI 모델이 과거 패턴을 학습하고 예측 중입니다..."):
+                        pred_price, importances = predict_future_price(df_ml_source)
+
+                    if pred_price:
+                        curr_price_val = df_ml_source['Close'].iloc[-1]
+                        diff = pred_price - curr_price_val
+                        diff_pct = (diff / curr_price_val) * 100
+
+                        col_ai1, col_ai2 = st.columns([1, 2])
+                        
+                        with col_ai1:
+                            st.metric(
+                                label="AI 예측 다음 거래일 예상 종가",
+                                value=f"{pred_price:,.0f} 원",
+                                delta=f"{diff:+,.0f} 원 ({diff_pct:+.2f}%)"
+                            )
+                            if diff > 0:
+                                st.success("💡 AI 분석 결과: **상승 가능성 높음**")
+                            else:
+                                st.warning("💡 AI 분석 결과: **하락 가능성 높음**")
+
+                        with col_ai2:
+                            st.caption("📊 AI 모델 판단 요소별 중요도 (Feature Importance)")
+                            importance_df = pd.DataFrame({
+                                '지표': list(importances.keys()),
+                                '중요도': list(importances.values())
+                            }).sort_values(by='중요도', ascending=True)
+                            
+                            fig_imp = px.bar(importance_df, x='중요도', y='지표', orientation='h', height=200)
+                            fig_imp.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+                            st.plotly_chart(fig_imp, use_container_width=True)
+                else:
+                    st.info("AI 예측을 수행하려면 최소 60일 이상의 데이터가 필요합니다.")
 
             max_buy_qty = int(cash // current_price) if current_price > 0 else 0
             buy_key = f"buy_input_{symbol}"
