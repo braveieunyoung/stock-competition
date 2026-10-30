@@ -9,3 +9,4 @@ psycopg2-binary
 streamlit-autorefresh
 finance-datareader
 scikit-learn
+lightgbm
