@@ -371,6 +371,37 @@ def predict_future_price(df):
 
     return predicted_price, feature_importance
 
+from lightgbm import LGBMRegressor # LightGBM 머신러닝 예측용 모델 추가
+
+def predict_future_price_lgbm(df):
+    """
+    LightGBM 머신러닝 모델을 활용하여 다음 거래일의 종가를 예측하는 함수
+    """
+    if len(df) < 60:
+        return None, None
+
+    df_ml = df.copy()
+    df_ml['MA5'] = df_ml['Close'].rolling(window=5).mean()
+    df_ml['MA20'] = df_ml['Close'].rolling(window=20).mean()
+    df_ml['Daily_Return'] = df_ml['Close'].pct_change()
+    df_ml['Target'] = df_ml['Close'].shift(-1)
+    
+    df_ml = df_ml.dropna()
+
+    features = ['Open', 'High', 'Low', 'Close', 'Volume', 'MA5', 'MA20', 'Daily_Return']
+    X = df_ml[features]
+    y = df_ml['Target']
+
+    # LightGBM 모델 선언 (학습 과정 로그 출력을 막기 위해 verbose=-1 설정)
+    model = LGBMRegressor(n_estimators=100, random_state=42, verbose=-1)
+    model.fit(X, y)
+
+    latest_data = df_ml[features].iloc[-1:].values
+    predicted_price = model.predict(latest_data)[0]
+    feature_importance = dict(zip(features, model.feature_importances_))
+
+    return predicted_price, feature_importance
+
 
 # ---------------------------------------------------------
 # FRAGMENT 1: 사이드바 증시 지수 
@@ -1063,47 +1094,77 @@ else:
                     else:
                         st.info(f"**{overall['title']}**\n\n{overall['desc']}")
 
-                # 🤖 [추가] AI 머신러닝 예측 리포트 섹션
+
+                # 🤖 [수정] AI 머신러닝 예측 리포트 섹션 (두 모델 비교)
                 st.divider()
-                st.subheader("🤖 AI 기반 다음 거래일 주가 예측 (Random Forest)")
+                st.subheader("🤖 AI 멀티 모델 비교 (Random Forest vs LightGBM)")
                 
-                # 전체 기간(1년 이상) 데이터를 기반으로 넉넉히 학습시키기 위해 별도 1년치 데이터 호출
                 df_ml_source = get_stock_history(symbol, period="1y")
                 if not df_ml_source.empty and len(df_ml_source) >= 60:
-                    with st.spinner("AI 모델이 과거 패턴을 학습하고 예측 중입니다..."):
-                        pred_price, importances = predict_future_price(df_ml_source)
-
-                    if pred_price:
+                    with st.spinner("AI 모델들이 과거 패턴을 학습하고 예측 중입니다..."):
+                        # 1. Random Forest 예측
+                        pred_rf, imp_rf = predict_future_price(df_ml_source)
+                        # 2. LightGBM 예측
+                        pred_lgbm, imp_lgbm = predict_future_price_lgbm(df_ml_source)
+                
+                    if pred_rf and pred_lgbm:
                         curr_price_val = df_ml_source['Close'].iloc[-1]
-                        diff = pred_price - curr_price_val
-                        diff_pct = (diff / curr_price_val) * 100
-
-                        col_ai1, col_ai2 = st.columns([1, 2])
                         
-                        with col_ai1:
-                            st.metric(
-                                label="AI 예측 다음 거래일 예상 종가",
-                                value=f"{pred_price:,.0f} 원",
-                                delta=f"{diff:+,.0f} 원 ({diff_pct:+.2f}%)"
-                            )
-                            if diff > 0:
-                                st.success("💡 AI 분석 결과: **상승 가능성 높음**")
-                            else:
-                                st.warning("💡 AI 분석 결과: **하락 가능성 높음**")
-
-                        with col_ai2:
-                            st.caption("📊 AI 모델 판단 요소별 중요도 (Feature Importance)")
-                            importance_df = pd.DataFrame({
-                                '지표': list(importances.keys()),
-                                '중요도': list(importances.values())
-                            }).sort_values(by='중요도', ascending=True)
-                            
-                            fig_imp = px.bar(importance_df, x='중요도', y='지표', orientation='h', height=200)
-                            fig_imp.update_layout(margin=dict(l=10, r=10, t=10, b=10))
-                            st.plotly_chart(fig_imp, use_container_width=True)
+                        # 2분할 컬럼으로 두 모델 결과 나란히 비교
+                        col_m1, col_m2 = st.columns(2)
+                        
+                        # 모델 1: Random Forest
+                        with col_m1:
+                            with st.container(border=True):
+                                st.markdown("### 🌲 Random Forest")
+                                diff_rf = pred_rf - curr_price_val
+                                pct_rf = (diff_rf / curr_price_val) * 100
+                                st.metric(
+                                    label="예상 종가",
+                                    value=f"{pred_rf:,.0f} 원",
+                                    delta=f"{diff_rf:+,.0f} 원 ({pct_rf:+.2f}%)"
+                                )
+                                if diff_rf > 0:
+                                    st.success("💡 예측: **상승 가능성 높음**")
+                                else:
+                                    st.warning("💡 예측: **하락 가능성 높음**")
+                        
+                        # 모델 2: LightGBM
+                        with col_m2:
+                            with st.container(border=True):
+                                st.markdown("### ⚡ LightGBM")
+                                diff_lgbm = pred_lgbm - curr_price_val
+                                pct_lgbm = (diff_lgbm / curr_price_val) * 100
+                                st.metric(
+                                    label="예상 종가",
+                                    value=f"{pred_lgbm:,.0f} 원",
+                                    delta=f"{diff_lgbm:+,.0f} 원 ({pct_lgbm:+.2f}%)"
+                                )
+                                if diff_lgbm > 0:
+                                    st.success("💡 예측: **상승 가능성 높음**")
+                                else:
+                                    st.warning("💡 예측: **하락 가능성 높음**")
+                
+                        # 앙상블(평균) 예측치 요약 추가
+                        avg_pred = (pred_rf + pred_lgbm) / 2
+                        diff_avg = avg_pred - curr_price_val
+                        pct_avg = (diff_avg / curr_price_val) * 100
+                        
+                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                        with st.container(border=True):
+                            st.markdown("#### 🎯 AI 앙상블 (두 모델 평균 예측)")
+                            col_a1, col_a2 = st.columns([1, 2])
+                            with col_a1:
+                                st.metric(
+                                    label="통합 예상 종가",
+                                    value=f"{avg_pred:,.0f} 원",
+                                    delta=f"{diff_avg:+,.0f} 원 ({pct_avg:+.2f}%)"
+                                )
+                            with col_a2:
+                                st.info("두 가지 서로 다른 머신러닝 알고리즘(배깅 vs 부스팅)의 예측값을 종합하여 균형 잡힌 투자 관점을 제공합니다.")
                 else:
                     st.info("AI 예측을 수행하려면 최소 60일 이상의 데이터가 필요합니다.")
-
+            
             max_buy_qty = int(cash // current_price) if current_price > 0 else 0
             buy_key = f"buy_input_{symbol}"
             if buy_key not in st.session_state: 
