@@ -57,87 +57,34 @@ def get_exchange_rate():
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_market_indices():
-    """네이버 금융 및 야후 파이낸스를 통해 주요 시장 지수 및 환율 정보를 안정적으로 가져오는 함수"""
+    """야후 파이낸스를 활용하여 주요 시장 지수 및 환율 정보를 안정적으로 가져오는 함수"""
+    indices = {
+        "코스피": "^KS11",
+        "코스닥": "^KQ11",
+        "S&P500": "^GSPC"
+    }
     results = {}
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
-    # 1. 코스피 지수 가져오기 (네이버 금융 모바일 메인 페이지 파싱)
-    try:
-        url = "https://m.stock.naver.com/domestic/index/KOSPI"
-        res = requests.get(url, headers=headers, timeout=2)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            # 또는 네이버 API 활용
-            api_url = "https://m.stock.naver.com/api/index/KOSPI/basic"
-            api_res = requests.get(api_url, headers=headers, timeout=2)
-            if api_res.status_code == 200:
-                data = api_res.json()
-                curr = float(str(data.get('nowVal', '0')).replace(',', ''))
-                chg = float(str(data.get('changeVal', '0')).replace(',', ''))
-                pct = float(str(data.get('changeRate', '0')).replace(',', ''))
-                if data.get('fluctuationsType', '') in ['4', '5', '6']: # 하락
-                    chg = -abs(chg)
-                    pct = -abs(pct)
-                if curr > 0:
-                    results["코스피"] = (curr, chg, pct)
-    except Exception:
-        pass
-
-    # 만약 네이버 API에서 못 가져왔다면 야후 파이낸스로 백업 처리
-    if "코스피" not in results:
+    for name, ticker_symbol in indices.items():
         try:
-            t = yf.Ticker("^KS11")
+            t = yf.Ticker(ticker_symbol)
             df = t.history(period="5d")
             if len(df) >= 2:
                 curr = float(df['Close'].iloc[-1])
                 prev = float(df['Close'].iloc[-2])
-                results["코스피"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
-        except Exception:
-            results["코스피"] = (0.0, 0.0, 0.0)
-
-    # 2. 코스닥 지수 가져오기
-    try:
-        api_url = "https://m.stock.naver.com/api/index/KOSDAQ/basic"
-        api_res = requests.get(api_url, headers=headers, timeout=2)
-        if api_res.status_code == 200:
-            data = api_res.json()
-            curr = float(str(data.get('nowVal', '0')).replace(',', ''))
-            chg = float(str(data.get('changeVal', '0')).replace(',', ''))
-            pct = float(str(data.get('changeRate', '0')).replace(',', ''))
-            if data.get('fluctuationsType', '') in ['4', '5', '6']:
-                chg = -abs(chg)
-                pct = -abs(pct)
-            if curr > 0:
-                results["코스닥"] = (curr, chg, pct)
-    except Exception:
-        pass
-
-    if "코스닥" not in results:
-        try:
-            t = yf.Ticker("^KQ11")
-            df = t.history(period="5d")
-            if len(df) >= 2:
+                chg = curr - prev
+                pct = (chg / prev) * 100
+                results[name] = (curr, chg, pct)
+            elif len(df) == 1:
                 curr = float(df['Close'].iloc[-1])
-                prev = float(df['Close'].iloc[-2])
-                results["코스닥"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
+                results[name] = (curr, 0.0, 0.0)
+            else:
+                results[name] = (0.0, 0.0, 0.0)
         except Exception:
-            results["코스닥"] = (0.0, 0.0, 0.0)
-
-    # 3. S&P500 지수
-    try:
-        t = yf.Ticker("^GSPC")
-        df = t.history(period="5d")
-        if len(df) >= 2:
-            curr = float(df['Close'].iloc[-1])
-            prev = float(df['Close'].iloc[-2])
-            results["S&P500"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
-    except Exception:
-        results["S&P500"] = (0.0, 0.0, 0.0)
-        
-    # 4. 환율
+            results[name] = (0.0, 0.0, 0.0)
+            
     rate = get_exchange_rate()
     results["USD/KRW"] = (rate, 0.0, 0.0)
-    
     return results
 
 # 학생/초보자 대상 주요 대표 종목 목록 (카테고리별)
