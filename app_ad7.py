@@ -57,34 +57,88 @@ def get_exchange_rate():
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_market_indices():
-    """야후 파이낸스를 활용하여 주요 시장 지수 및 환율 정보를 안정적으로 가져오는 함수"""
-    indices = {
-        "코스피": "^KS11",
-        "코스닥": "^KQ11",
-        "S&P500": "^GSPC"
-    }
+    """네이버 금융 웹 페이지를 파싱하여 실제 코스피/코스닥 실시간 지수를 정확하게 가져오는 함수"""
     results = {}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
     
-    for name, ticker_symbol in indices.items():
+    # 1. 코스피 지수 가져오기 (네이버 금융 모바일)
+    try:
+        url = "https://m.stock.naver.com/domestic/index/KOSPI"
+        res = requests.get(url, headers=headers, timeout=3)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            # 네이버 모바일 페이지의 지수 태그 파싱
+            # (페이지 구조 변화에 대비해 API 방식과 병행)
+            api_url = "https://m.stock.naver.com/api/index/KOSPI/basic"
+            api_res = requests.get(api_url, headers=headers, timeout=3)
+            if api_res.status_code == 200:
+                data = api_res.json()
+                curr = float(str(data.get('nowVal', '0')).replace(',', ''))
+                chg = float(str(data.get('changeVal', '0')).replace(',', ''))
+                pct = float(str(data.get('changeRate', '0')).replace(',', ''))
+                if data.get('fluctuationsType', '') in ['4', '5', '6']: # 하락
+                    chg = -abs(chg)
+                    pct = -abs(pct)
+                if curr > 0:
+                    results["코스피"] = (curr, chg, pct)
+    except Exception:
+        pass
+
+    # 만약 가져오지 못했다면 기존 야후 파이낸스 백업
+    if "코스피" not in results:
         try:
-            t = yf.Ticker(ticker_symbol)
+            t = yf.Ticker("^KS11")
             df = t.history(period="5d")
             if len(df) >= 2:
                 curr = float(df['Close'].iloc[-1])
                 prev = float(df['Close'].iloc[-2])
-                chg = curr - prev
-                pct = (chg / prev) * 100
-                results[name] = (curr, chg, pct)
-            elif len(df) == 1:
-                curr = float(df['Close'].iloc[-1])
-                results[name] = (curr, 0.0, 0.0)
-            else:
-                results[name] = (0.0, 0.0, 0.0)
+                results["코스피"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
         except Exception:
-            results[name] = (0.0, 0.0, 0.0)
-            
+            results["코스피"] = (0.0, 0.0, 0.0)
+
+    # 2. 코스닥 지수 가져오기
+    try:
+        api_url = "https://m.stock.naver.com/api/index/KOSDAQ/basic"
+        api_res = requests.get(api_url, headers=headers, timeout=3)
+        if api_res.status_code == 200:
+            data = api_res.json()
+            curr = float(str(data.get('nowVal', '0')).replace(',', ''))
+            chg = float(str(data.get('changeVal', '0')).replace(',', ''))
+            pct = float(str(data.get('changeRate', '0')).replace(',', ''))
+            if data.get('fluctuationsType', '') in ['4', '5', '6']:
+                chg = -abs(chg)
+                pct = -abs(pct)
+            if curr > 0:
+                results["코스닥"] = (curr, chg, pct)
+    except Exception:
+        pass
+
+    if "코스닥" not in results:
+        try:
+            t = yf.Ticker("^KQ11")
+            df = t.history(period="5d")
+            if len(df) >= 2:
+                curr = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                results["코스닥"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
+        except Exception:
+            results["코스닥"] = (0.0, 0.0, 0.0)
+
+    # 3. S&P500 지수 (미국은 야후 파이낸스가 표준이므로 유지)
+    try:
+        t = yf.Ticker("^GSPC")
+        df = t.history(period="5d")
+        if len(df) >= 2:
+            curr = float(df['Close'].iloc[-1])
+            prev = float(df['Close'].iloc[-2])
+            results["S&P500"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
+    except Exception:
+        results["S&P500"] = (0.0, 0.0, 0.0)
+        
+    # 4. 환율
     rate = get_exchange_rate()
     results["USD/KRW"] = (rate, 0.0, 0.0)
+    
     return results
 
 # 학생/초보자 대상 주요 대표 종목 목록 (카테고리별)
