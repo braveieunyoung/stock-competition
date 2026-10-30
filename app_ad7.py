@@ -57,29 +57,55 @@ def get_exchange_rate():
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_market_indices():
-    """주요 시장 지수 및 환율 정보를 실시간 요약 반환하는 함수 (30초 캐싱)"""
+    """네이버 모바일 API를 통해 주요 시장 지수 및 환율 정보를 가져오는 함수"""
     indices = {
-        "코스피": "^KS11",
-        "코스닥": "^KQ11",
-        "S&P500": "^GSPC"
+        "코스피": "KOSPI",
+        "코스닥": "KOSDAQ",
+        "S&P500": "SPI@SPX" # 또는 미국 지표는 필요시 유지
     }
     results = {}
-    for name, ticker_symbol in indices.items():
-        try:
-            t = yf.Ticker(ticker_symbol)
-            df = t.history(period="5d")
-            if len(df) >= 2:
-                curr = float(df['Close'].iloc[-1])
-                prev = float(df['Close'].iloc[-2])
-                chg = curr - prev
-                pct = (chg / prev) * 100
-                results[name] = (curr, chg, pct)
-            elif len(df) == 1:
-                curr = float(df['Close'].iloc[-1])
-                results[name] = (curr, 0.0, 0.0)
-        except Exception:
-            pass
-            
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    
+    # 코스피/코스닥 네이버 API 활용 예시
+    try:
+        url = "https://m.stock.naver.com/api/index/KOSPI/basic"
+        res = requests.get(url, headers=headers, timeout=2)
+        if res.status_code == 200:
+            data = res.json()
+            curr = float(str(data.get('nowVal', '0')).replace(',', ''))
+            chg = float(str(data.get('changeVal', '0')).replace(',', ''))
+            pct = float(str(data.get('changeRate', '0')).replace(',', ''))
+            # 상승/하락 부호 처리
+            if data.get('fluctuationsType', '') in ['5', '6']: # 하락 등
+                chg = -abs(chg)
+                pct = -abs(pct)
+            results["코스피"] = (curr, chg, pct)
+    except Exception:
+        pass
+        
+    try:
+        url = "https://m.stock.naver.com/api/index/KOSDAQ/basic"
+        res = requests.get(url, headers=headers, timeout=2)
+        if res.status_code == 200:
+            data = res.json()
+            curr = float(str(data.get('nowVal', '0')).replace(',', ''))
+            chg = float(str(data.get('changeVal', '0')).replace(',', ''))
+            pct = float(str(data.get('changeRate', '0')).replace(',', ''))
+            results["코스닥"] = (curr, chg, pct)
+    except Exception:
+        pass
+
+    # S&P500이나 환율은 기존 야후 파이낸스 유지 또는 환율 함수 활용
+    try:
+        t = yf.Ticker("^GSPC")
+        df = t.history(period="5d")
+        if len(df) >= 2:
+            curr = float(df['Close'].iloc[-1])
+            prev = float(df['Close'].iloc[-2])
+            results["S&P500"] = (curr, curr - prev, ((curr - prev) / prev) * 100)
+    except Exception:
+        pass
+        
     rate = get_exchange_rate()
     results["USD/KRW"] = (rate, 0.0, 0.0)
     return results
