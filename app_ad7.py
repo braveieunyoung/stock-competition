@@ -57,7 +57,7 @@ def get_exchange_rate():
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_market_indices():
-    """네이버 금융 웹 페이지를 파싱하여 실제 코스피/코스닥 실시간 지수를 정확하게 가져오는 함수"""
+    
     results = {}
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
     
