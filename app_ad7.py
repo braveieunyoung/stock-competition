@@ -45,7 +45,7 @@ def get_exchange_rate():
         ticker = yf.Ticker("USDKRW=X")
         rate = ticker.fast_info.get('lastPrice', None)
         if not rate:
-            df = ticker.history(period="1d")
+            df = ticker.history(period="1d")   # 해당 종목(Ticker)의 최근 1일 치(가장 최근 거래일) 주가 데이터를 불러옴, Date(날짜), Open(시가), High(고가), Low(저가), Close(종가), Volume(거래량), Dividends(배당), Stock Splits(주식분할) 컬럼으로 구성
             if not df.empty:
                 rate = float(df['Close'].iloc[-1])
         if rate and rate > 0:
