@@ -964,7 +964,8 @@ else:
     top_col1, top_col2 = st.columns([5, 1])
     with top_col1:
         st.title(f"😊 {user_name} ({user_id}) 님의 대시보드")
-        st.write("“주식 시장은 인내심 없는 사람의 돈을 인내심 있는 사람에게 이동시키는 도구이다.” (The stock market is a device for transferring money from the impatient to the patient)")
+        st.write("“주식 시장은 인내심 없는 사람의 돈을 인내심 있는 사람에게 이동시키는 도구이다.”")
+        st.write("The stock market is a device for transferring money from the impatient to the patient")
         st.write("워런 버핏(Warren Buffett)")
     with top_col2:
         st.write("")
